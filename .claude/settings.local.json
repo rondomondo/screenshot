@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /Users/davek/Code/screenshot/workspace/session-search.py)",
+      "Bash(/Users/davek/Code/screenshot/workspace/session-search.py --help)",
+      "Bash(/Users/davek/Code/screenshot/workspace/session-search.py fastapi *)",
+      "Bash(uv run *)",
+      "Bash(docker run *)",
+      "Bash(npm show *)",
+      "Bash(make mcp-up *)",
+      "Bash(docker-compose ps *)",
+      "Bash(docker compose up *)",
+      "Bash(docker compose *)",
+      "Bash(git -C /Users/davek/Code/screenshot log --oneline)",
+      "Bash(git -C /Users/davek/Code/screenshot remote -v)",
+      "Bash(uv sync *)",
+      "Bash(python *)",
+      "Bash(curl -sv http://localhost:3000/health)",
+      "Bash(docker exec *)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(curl -sv --max-time 3 http://localhost:3000/sse)",
+      "Bash(curl -s http://localhost:3000/sse)",
+      "Bash(curl -fs http://localhost:3000/health)",
+      "Bash(curl -fs http://localhost:3000/)",
+      "Bash(curl -v http://localhost:3000/health)",
+      "Bash(curl -v http://localhost:3000/)",
+      "Bash(curl -v http://localhost:3000/mcp)",
+      "Bash(curl *)",
+      "Bash(make status *)",
+      "Bash(./ssc.py pdf *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(ts '[%H:%M:%S]')",
+      "Bash(awk '{ print strftime\\(\"[%H:%M:%S]\"\\), $0; fflush\\(\\) }')",
+      "Bash(python3 -c \"import sys, datetime; [print\\(datetime.datetime.now\\(\\).strftime\\('[%H:%M:%S]'\\), line, end=''\\) for line in sys.stdin]\")",
+      "Bash(bash -n /Users/davek/Code/screenshot/install.sh)",
+      "Bash(bash -n /Users/davek/Code/screenshot/uninstall.sh)",
+      "Bash(sh -n /Users/davek/Code/screenshot/url2pdf.sh)",
+      "Bash(sh -n /Users/davek/Code/screenshot/url2image.sh)",
+      "Bash(bash -n /Users/davek/Code/screenshot/entrypoint.sh)"
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+services:
+    # One-shot screenshotter (existing behaviour - run via `make screenshot/pdf`)
+    screenshotter:
+        image: ghcr.io/rondomondo/screenshot:latest
+        profiles: [oneshot]
+        volumes:
+            - ./screenshots:/screenshots
+            - ./pdfs:/pdfs
+            - ./html:/html:ro
+            - ./workspace:/workspace
+
+    # Long-lived MCP server - clients connect over HTTP/SSE on port 3000
+    mcp:
+        image: ghcr.io/rondomondo/screenshot:latest
+        entrypoint:
+            [
+                'node',
+                '/app/node_modules/playwright-core/cli.js',
+                'mcp',
+                '--headless',
+                '--host',
+                '0.0.0.0',
+                '--port',
+                '3000',
+                '--browser',
+                'chromium',
+                '--isolated',
+                '--storage-state',
+                '/workspace/sessions/${SESSION:-default}.json',
+                '--allowed-hosts',
+                '*',
+            ]
+        ports:
+            - '3000:3000'
+        volumes:
+            - ./screenshots:/screenshots
+            - ./pdfs:/pdfs
+            - ./workspace:/workspace
+        environment:
+            - PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+            - SESSION=${SESSION:-default}
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'curl -fs --max-time 3 -X POST -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"healthcheck\",\"version\":\"1\"}}}" http://localhost:3000/mcp || exit 1',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
