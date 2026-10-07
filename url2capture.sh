@@ -82,12 +82,12 @@ DEBUG_FLAG=""
 [ "${DEBUG:-0}" = "1" ] && DEBUG_FLAG="-e DEBUG=1"
 
 if [ "${DEBUG:-0}" = "1" ]; then
-    printf "${CYAN}debug${RESET}  docker run --rm --pull always %s -v %s/pdfs:/pdfs -v %s/screenshots:/screenshots %s %s %s %s\n" \
+    printf "${CYAN}debug${RESET}  docker run --rm %s -v %s/pdfs:/pdfs -v %s/screenshots:/screenshots %s %s %s %s\n" \
         "$DEBUG_FLAG" "$CWD" "$CWD" "$HTML_MOUNT" "$IMAGE" "$COMMAND" "$*" >&2
 fi
 
 # shellcheck disable=SC2086
-exec docker run --rm --pull always \
+exec docker run --rm \
     $DEBUG_FLAG \
     -v "${CWD}/pdfs:/pdfs" \
     -v "${CWD}/screenshots:/screenshots" \
