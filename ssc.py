@@ -24,7 +24,7 @@ from typing import Annotated, Any
 
 import typer
 from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client as streamablehttp_client
+from mcp.client.sse import sse_client
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from rich.console import Console
 from rich.table import Table
@@ -46,7 +46,7 @@ console = Console()
 err_console = Console(stderr=True)
 
 # Path and URL defaults aligned with Makefile & docker-compose.yml
-DEFAULT_MCP_URL = os.getenv("MCP_SERVER_URL", "http://localhost:3000/mcp")
+DEFAULT_MCP_URL = os.getenv("MCP_SERVER_URL", "http://localhost:3000/sse")
 CONTAINER_SCREENSHOT_DIR = Path("/screenshots")
 DEFAULT_OUT_DIR = Path(os.getenv("SCREENSHOTS_DIR", "./screenshots"))
 CONTAINER_PDF_DIR = Path("/pdfs")
@@ -180,13 +180,13 @@ async def open_session(
     retries: int = CONNECT_RETRIES,
     delay: float = CONNECT_RETRY_DELAY_S,
 ) -> ClientSession:
-    """Establish and initialize an MCP streamable-HTTP session with exponential backoff retry."""
+    """Establish and initialize an MCP SSE session with exponential backoff retry."""
     last_exc: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
             logger.debug(f"Connecting to MCP server at {mcp_url} (Attempt {attempt}/{retries})")
-            transport = streamablehttp_client(mcp_url)
-            read, write, _ = await transport.__aenter__()
+            transport = sse_client(mcp_url)
+            read, write = await transport.__aenter__()
             session = ClientSession(read, write)
             await session.__aenter__()
             await session.initialize()
@@ -197,7 +197,7 @@ async def open_session(
             logger.warning("MCP connection attempt %d/%d failed: %s", attempt, retries, exc)
             if attempt < retries:
                 await asyncio.sleep(delay * (1.5 ** (attempt - 1)))
-
+    
     err_console.print(f"[bold red]Error:[/bold red] Failed to connect to MCP server at {mcp_url}")
     raise last_exc  # type: ignore[misc]
 
@@ -246,14 +246,7 @@ async def call_tool(session: ClientSession, tool: str, **params: Any) -> list[Te
 
 
 def sanitize_filename(url: str, extension: str = "png") -> str:
-    """Derive clean, collision-free filename stem from URL.
-
-    For file:// URLs the basename without extension is used so that
-    file:///html/foo.html produces foo.png rather than file---html-foo-html.png.
-    """
-    if url.startswith("file://"):
-        stem = Path(url.removeprefix("file://")).stem
-        return f"{stem}.{extension}"
+    """Derive clean, collision-free filename stem from URL."""
     stem = url.removeprefix("https://").removeprefix("http://")
     stem = stem.split("?")[0].split("#")[0]
     clean_stem = "".join(c if c.isalnum() else "-" for c in stem).strip("-")
@@ -503,7 +496,7 @@ def cmd_screenshot(
     dismiss_popups: Annotated[bool, typer.Option("--dismiss-popups/--no-dismiss-popups", help="Automatically dismiss cookie consent and delayed popups.")] = True,
     custom_selector: Annotated[list[str] | None, typer.Option("--custom-selector", "-c", help="Custom CSS selectors to click for specific site popups.")] = None,
     out_dir: Annotated[Path, typer.Option("--out-dir", "-o", help="Target output directory.")] = DEFAULT_OUT_DIR,
-    mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP endpoint URL.")] = DEFAULT_MCP_URL,
+    mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Capture a high-resolution full-page screenshot of a webpage."""
     async def run() -> None:
@@ -533,7 +526,7 @@ def cmd_pdf(
     dismiss_popups: Annotated[bool, typer.Option("--dismiss-popups/--no-dismiss-popups", help="Automatically dismiss cookie consent and delayed popups.")] = True,
     custom_selector: Annotated[list[str] | None, typer.Option("--custom-selector", "-c", help="Custom CSS selectors to click for specific site popups.")] = None,
     out_dir: Annotated[Path, typer.Option("--out-dir", "-o", help="Target output directory.")] = DEFAULT_PDF_DIR,
-    mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP endpoint URL.")] = DEFAULT_MCP_URL,
+    mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Render and capture target URL as a PDF document."""
     async def run() -> None:
@@ -555,7 +548,7 @@ def cmd_pdf(
 
 @app.command("tools")
 def cmd_list_tools(
-    mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP endpoint URL.")] = DEFAULT_MCP_URL,
+    mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """List all supported capabilities exposed by the active Playwright MCP server."""
     async def run() -> None:
