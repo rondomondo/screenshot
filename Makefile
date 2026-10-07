@@ -17,7 +17,7 @@ REMOTE     := $(REGISTRY)/$(IMAGE_REPO)
 VERSION     = $(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
 PLATFORMS  := linux/amd64,linux/arm64
 BUILDER    := screenshotter-builder
-NO_CACHE   ?= 1
+NO_CACHE   ?= 0
 _CACHE_FLAG = $(if $(filter 1,$(NO_CACHE)),--no-cache,)
 
 # -- Paths & Directory Defaults -------------------------------
@@ -44,6 +44,21 @@ help: ## Show this help message
 build: ## Build single-arch image for local testing (loads into Docker daemon). NO_CACHE=1 to bust cache.
 	docker build $(_CACHE_FLAG) -t $(REMOTE):$(VERSION) -t $(REMOTE):latest .
 	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest (local arch only)\n"
+
+.PHONY: build-slim
+build-slim: ## Build slim variant (system Chromium, no SRE tools). NO_CACHE=1 to bust cache.
+	docker build $(_CACHE_FLAG) -f Dockerfile.slim -t $(REMOTE):$(VERSION)-slim -t $(REMOTE):slim .
+	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION)-slim and $(REMOTE):slim\n"
+
+.PHONY: build-pw
+build-pw: ## Build Playwright-official-base variant. NO_CACHE=1 to bust cache.
+	docker build $(_CACHE_FLAG) -f Dockerfile.pw -t $(REMOTE):$(VERSION)-pw -t $(REMOTE):pw .
+	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION)-pw and $(REMOTE):pw\n"
+
+.PHONY: build-sre
+build-sre: ## Build standalone SRE tools image (curl, dig, ss, strace, htop, jq, etc). NO_CACHE=1 to bust cache.
+	docker build $(_CACHE_FLAG) -f Dockerfile.sre -t $(REGISTRY)/rondomondo/sre-tools:latest .
+	@printf "$(GREEN)Built$(RESET) $(REGISTRY)/rondomondo/sre-tools:latest\n"
 
 .PHONY: builder-init
 builder-init: ## Create/reuse the multi-platform buildx builder
@@ -120,7 +135,7 @@ define RUN_MCP_CLIENT
 		printf "$(CYAN)MCP server not detected. Spinning up background container...$(RESET)\n"; \
 		$(MAKE) mcp-up SESSION=$(SESSION) >/dev/null; \
 	fi; \
-	uv run ssc.py $(1) $(TARGET) $(ARGS); \
+	uv run ssc.py $(1) --url http://localhost:3000/mcp $(TARGET) $(ARGS); \
 	EXIT_CODE=$$?; \
 	if [ "$$WAS_RUNNING" -eq 0 ]; then \
 		printf "$(CYAN)Cleaning up temporary MCP container...$(RESET)\n"; \

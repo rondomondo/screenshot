@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# Conventional Commits enforcer
+#
+# Conventional Commits is a lightweight spec for commit messages that makes them
+# machine-readable and human-friendly.
+#
+# Format: <type>(<scope>): <description>
+#
+# Common types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+# A '!' suffix (e.g. feat!:) signals a breaking change.
+#
+# Examples:
+#   feat(auth): add OAuth2 login          ✓
+#   fix: correct null pointer in parser   ✓
+#   docs(readme): update install steps    ✓
+#   feat!: drop support for Node 14       ✓  (breaking change)
+#   fix(api): handle null response from upstream service
+#   fix: prevent crash when config file is missing
+#   docs(readme): update installation instructions
+#   refactor(parser): simplify token extraction logic
+#   perf(render): cache diagram output to avoid re-computation
+#   test(cli): add coverage for --output flag
+#   chore(deps): bump mermaid to v11.4.0
+#   ci: add GitHub Actions workflow for PRs
+#
+#   Added login feature                   ✗  (no type)
+#   feat - add login                      ✗  (wrong separator)
+#   FIX: something                        ✗  (uppercase)
+#
+#
+# Learn more: https://www.conventionalcommits.org
+#
+MSG=$(cat "$1")
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .{1,}"
+
+if ! echo "$MSG" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "  ✗ Invalid commit message format!"
+  echo ""
+  echo "  Expected: <type>(<scope>): <description>"
+  echo "  Example:  feat!: drop support for Node 16"
+  echo ""
+  echo "  Types: feat fix docs style refactor perf test build ci chore revert"
+  echo ""
+  exit 1
+fi
