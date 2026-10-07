@@ -223,7 +223,7 @@ mcp_start
 log "Running ssc.py ${COMMAND}..."
 uv run --script "$SSC" "$COMMAND" "${SSC_ARGS[@]}" --url "$MCP_URL" "$RESOLVED_TARGET"
 
-ok "saved ${OUT_FILE}"
+ok "saved ${OUT_FILE#/}"
 
 # Optional post-conversion
 if [[ -n "$CONVERT_FMT" ]]; then
@@ -231,5 +231,5 @@ if [[ -n "$CONVERT_FMT" ]]; then
   log "converting $OUT_FILE -> $FINAL_FILE"
   convert "$OUT_FILE" "$FINAL_FILE"
   rm -f "$OUT_FILE"
-  ok "converted to $FINAL_FILE"
+  ok "converted to ${FINAL_FILE#/}"
 fi

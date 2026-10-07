@@ -1,7 +1,7 @@
 services:
     # One-shot screenshotter (existing behaviour - run via `make screenshot/pdf`)
     screenshotter:
-        image: ghcr.io/rondomondo/screenshot:latest
+        image: ghcr.io/rondomondo/screenshot:${IMAGE_TAG:-latest}
         profiles: [oneshot]
         volumes:
             - ./screenshots:/screenshots
@@ -11,7 +11,7 @@ services:
 
     # Long-lived MCP server - clients connect over HTTP/SSE on port 3000
     mcp:
-        image: ghcr.io/rondomondo/screenshot:latest
+        image: ghcr.io/rondomondo/screenshot:${IMAGE_TAG:-latest}
         entrypoint:
             [
                 'node',

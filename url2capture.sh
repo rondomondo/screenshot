@@ -6,7 +6,8 @@ CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 RESET='\033[0m'
 
-IMAGE="ghcr.io/rondomondo/screenshot:latest"
+IMAGE_TAG="${IMAGE_TAG:-latest}"
+IMAGE="ghcr.io/rondomondo/screenshot:${IMAGE_TAG}"
 
 # Dispatch based on the name this script was invoked as.
 INVOKED_AS="$(basename "$0")"
@@ -50,6 +51,9 @@ usage() {
     esac
     printf "  -h, --help              Show this help\n" >&2
     printf "\nOutput is written to ./pdfs/ or ./screenshots/ in the current directory.\n" >&2
+    printf "\n${BOLD}Environment:${RESET}\n" >&2
+    printf "  IMAGE_TAG               Docker image tag to use (default: latest)\n" >&2
+    printf "                          e.g. IMAGE_TAG=0.0.21 url2pdf https://example.com\n" >&2
     exit 1
 }
 

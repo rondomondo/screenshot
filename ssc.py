@@ -512,7 +512,7 @@ def cmd_screenshot(
                 custom_selectors=custom_selector,
                 storage_state_path=storage_state,
             )
-            console.print(f"[bold green]Successfully saved screenshot:[/bold green] {out_file}")
+            console.print(f"[bold green]Successfully saved screenshot:[/bold green] {str(out_file).lstrip('/')}")
 
     asyncio.run(run())
 
@@ -541,7 +541,7 @@ def cmd_pdf(
                 custom_selectors=custom_selector,
                 storage_state_path=storage_state,
             )
-            console.print(f"[bold green]Successfully rendered PDF:[/bold green] {out_file}")
+            console.print(f"[bold green]Successfully rendered PDF:[/bold green] {str(out_file).lstrip('/')}")
 
     asyncio.run(run())
 

@@ -22,7 +22,7 @@ RUN apt-get update && \
         zsh procps less htop lsof \
         libmagic1 libmagic-dev \
         ca-certificates gnupg \
-        imagemagick fonts-liberation \
+        imagemagick fonts-liberation fonts-noto fonts-noto-color-emoji \
         libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
         libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
         libgbm1 libasound2 libpango-1.0-0 libpangocairo-1.0-0 \
@@ -51,6 +51,12 @@ COPY --chown=root:root install.sh /install.sh
 COPY --chown=root:root uninstall.sh /uninstall.sh
 COPY --chown=root:root ssc.py /app/ssc.py
 COPY --chown=root:root url2capture.sh /usr/local/lib/screenshot/url2capture.sh
+
+# Bake the image version into url2capture.sh so installed copies default to the correct tag.
+ARG SCREENSHOT_VERSION
+RUN if [ -n "$SCREENSHOT_VERSION" ]; then \
+      sed -i "s/IMAGE_TAG:-latest/IMAGE_TAG:-${SCREENSHOT_VERSION}/" /usr/local/lib/screenshot/url2capture.sh; \
+    fi
 
 # Pre-warm the uv script environment so the first capture does not resolve deps
 RUN uv run --script /app/ssc.py --help > /dev/null

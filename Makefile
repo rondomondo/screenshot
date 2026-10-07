@@ -16,6 +16,7 @@ IMAGE_REPO := rondomondo/screenshot
 REMOTE     := $(REGISTRY)/$(IMAGE_REPO)
 VERSION     = $(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
 PLATFORMS  := linux/amd64,linux/arm64
+PPLATFORMS  := linux/amd64
 BUILDER    := screenshotter-builder
 NO_CACHE   ?= 0
 _CACHE_FLAG = $(if $(filter 1,$(NO_CACHE)),--no-cache,)
@@ -42,17 +43,17 @@ help: ## Show this help message
 
 .PHONY: build
 build: ## Build single-arch image for local testing (loads into Docker daemon). NO_CACHE=1 to bust cache.
-	docker build $(_CACHE_FLAG) -t $(REMOTE):$(VERSION) -t $(REMOTE):latest .
+	docker build $(_CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -t $(REMOTE):$(VERSION) -t $(REMOTE):latest .
 	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest (local arch only)\n"
 
 .PHONY: build-slim
 build-slim: ## Build slim variant (system Chromium, no SRE tools). NO_CACHE=1 to bust cache.
-	docker build $(_CACHE_FLAG) -f Dockerfile.slim -t $(REMOTE):$(VERSION)-slim -t $(REMOTE):slim .
+	docker build $(_CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -f Dockerfile.slim -t $(REMOTE):$(VERSION)-slim -t $(REMOTE):slim .
 	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION)-slim and $(REMOTE):slim\n"
 
 .PHONY: build-pw
 build-pw: ## Build Playwright-official-base variant. NO_CACHE=1 to bust cache.
-	docker build $(_CACHE_FLAG) -f Dockerfile.pw -t $(REMOTE):$(VERSION)-pw -t $(REMOTE):pw .
+	docker build $(_CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -f Dockerfile.pw -t $(REMOTE):$(VERSION)-pw -t $(REMOTE):pw .
 	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION)-pw and $(REMOTE):pw\n"
 
 .PHONY: build-sre
@@ -83,6 +84,7 @@ push: builder-init ## Build multi-platform image and push to ghcr.io (amd64 + ar
 	docker buildx build \
 	  --builder $(BUILDER) \
 	  $(_CACHE_FLAG) \
+	  --build-arg SCREENSHOT_VERSION=$(VERSION) \
 	  --platform $(PLATFORMS) \
 	  --tag $(REMOTE):$(VERSION) \
 	  --tag $(REMOTE):latest \
@@ -93,27 +95,40 @@ push: builder-init ## Build multi-platform image and push to ghcr.io (amd64 + ar
 .PHONY: release
 release: bump push ## Bump patch version, build multi-platform, and push to ghcr.io
 
+.PHONY: retag
+retag: ## Re-tag an existing remote image without pulling: make retag FROM=latest TAG=v0.1.1
+	@if [ -z "$(FROM)" ] || [ -z "$(TAG)" ]; then \
+	  printf "$(RED)Error: FROM and TAG are required. Usage: make retag FROM=latest TAG=v0.1.1$(RESET)\n"; \
+	  exit 1; \
+	fi
+	docker buildx imagetools create -t $(REMOTE):$(TAG) $(REMOTE):$(FROM)
+	@printf "$(GREEN)Retagged$(RESET) $(REMOTE):$(FROM) -> $(REMOTE):$(TAG)\n"
+
 ##@ Install
 
-DESTDIR ?= ~/.local/bin
-
 .PHONY: install
-install: ## Install url2pdf and url2image to DESTDIR (default: /usr/local/bin)
-	@install -m 755 url2capture.sh $(DESTDIR)/url2capture
-	@printf "$(GREEN)Installed$(RESET) $(DESTDIR)/url2capture\n"
-	@ln -sf $(DESTDIR)/url2capture $(DESTDIR)/url2pdf
-	@printf "$(GREEN)Linked$(RESET)     $(DESTDIR)/url2pdf -> $(DESTDIR)/url2capture\n"
-	@ln -sf $(DESTDIR)/url2capture $(DESTDIR)/url2image
-	@printf "$(GREEN)Linked$(RESET)     $(DESTDIR)/url2image -> $(DESTDIR)/url2capture\n"
+install: ## Install url2pdf and url2image; tries /usr/local/bin, falls back to ~/.local/bin
+	@if install -m 755 url2capture.sh /usr/local/bin/url2capture 2>/dev/null; then \
+	  IDIR=/usr/local/bin; \
+	else \
+	  mkdir -p ~/.local/bin; \
+	  install -m 755 url2capture.sh ~/.local/bin/url2capture; \
+	  IDIR=~/.local/bin; \
+	fi; \
+	printf "$(GREEN)Installed$(RESET) $$IDIR/url2capture\n"; \
+	ln -sf $$IDIR/url2capture $$IDIR/url2pdf; \
+	printf "$(GREEN)Linked$(RESET)     $$IDIR/url2pdf -> $$IDIR/url2capture\n"; \
+	ln -sf $$IDIR/url2capture $$IDIR/url2image; \
+	printf "$(GREEN)Linked$(RESET)     $$IDIR/url2image -> $$IDIR/url2capture\n"
 
 .PHONY: uninstall
-uninstall: ## Remove url2pdf, url2image, and url2capture from DESTDIR
-	@for name in url2pdf url2image url2capture; do \
-	  if [ -f "$(DESTDIR)/$$name" ] || [ -L "$(DESTDIR)/$$name" ]; then \
-	    rm -f "$(DESTDIR)/$$name" && printf "$(GREEN)Removed$(RESET)   $(DESTDIR)/$$name\n"; \
-	  else \
-	    printf "$(YELLOW)Not found$(RESET) $(DESTDIR)/$$name\n"; \
-	  fi; \
+uninstall: ## Remove url2pdf, url2image, and url2capture from /usr/local/bin and ~/.local/bin
+	@for dir in /usr/local/bin ~/.local/bin; do \
+	  for name in url2pdf url2image url2capture; do \
+	    if [ -f "$$dir/$$name" ] || [ -L "$$dir/$$name" ]; then \
+	      rm -f "$$dir/$$name" && printf "$(GREEN)Removed$(RESET)   $$dir/$$name\n"; \
+	    fi; \
+	  done; \
 	done
 
 ##@ Test
