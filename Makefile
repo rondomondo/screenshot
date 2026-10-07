@@ -95,7 +95,7 @@ release: bump push ## Bump patch version, build multi-platform, and push to ghcr
 
 ##@ Install
 
-DESTDIR ?= /usr/local/bin
+DESTDIR ?= ~/.local/bin
 
 .PHONY: install
 install: ## Install url2pdf and url2image to DESTDIR (default: /usr/local/bin)
@@ -135,7 +135,7 @@ define RUN_MCP_CLIENT
 		printf "$(CYAN)MCP server not detected. Spinning up background container...$(RESET)\n"; \
 		$(MAKE) mcp-up SESSION=$(SESSION) >/dev/null; \
 	fi; \
-	uv run ssc.py $(1) --url http://localhost:3000/mcp $(TARGET) $(ARGS); \
+	uv run ssc.py $(1) --url http://localhost:3000/sse $(TARGET) $(ARGS); \
 	EXIT_CODE=$$?; \
 	if [ "$$WAS_RUNNING" -eq 0 ]; then \
 		printf "$(CYAN)Cleaning up temporary MCP container...$(RESET)\n"; \
@@ -185,7 +185,7 @@ mcp-shell: ## Open a shell in the MCP container (useful for inspecting /workspac
 
 .PHONY: docker-shell
 docker-shell: ## Open an interactive bash shell in the image
-	docker run --rm -it --entrypoint bash $(REMOTE):latest
+	docker run --rm -it --entrypoint bash $(REMOTE):$(VERSION)
 
 ##@ Info
 

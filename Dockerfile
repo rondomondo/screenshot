@@ -1,50 +1,67 @@
-# Stage 1: system deps on python:3.12-slim base
-FROM python:3.12-slim AS system-deps
+# Screenshot image: python:3.12-slim + uv + Node 22 + playwright-chromium (npm)
+FROM node:22-slim AS node-src
+
+FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /usr/local/bin/
+COPY --from=mikefarah/yq:4 /usr/bin/yq /usr/local/bin/yq
+
+# Node comes from the official image so it is v22, not Debian's older nodejs package
+COPY --from=node-src /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-src /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl gnupg ca-certificates \
-    chromium \
-    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
-    libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
-    libgbm1 libasound2 libpango-1.0-0 libpangocairo-1.0-0 \
-    fonts-liberation imagemagick \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
+USER root
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        make git curl wget unzip sudo jq \
+        zsh procps less htop lsof \
+        libmagic1 libmagic-dev \
+        ca-certificates gnupg \
+        imagemagick fonts-liberation \
+        libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+        libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+        libgbm1 libasound2 libpango-1.0-0 libpangocairo-1.0-0 \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+       > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
-# Stage 2: npm deps
-FROM system-deps AS npm-deps
-
+# npm deps: playwright-chromium (provides playwright-core cli used by the MCP server) + autoconsent.
+# The MCP server resolves its browser from PLAYWRIGHT_BROWSERS_PATH, so the bundled Chromium is installed there.
 WORKDIR /app
 COPY package.json package-lock.json* ./
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm ci --omit=dev || npm install @duckduckgo/autoconsent
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+RUN npm install --omit=dev \
+    && node /app/node_modules/playwright-core/cli.js install chromium \
+    && test -f /app/node_modules/playwright-chromium/cli.js
 
-# Stage 3: pre-warm the ssc.py uv script environment
-FROM npm-deps AS python-deps
+RUN mkdir -p /usr/local/lib/screenshot
 
-COPY ssc.py /app/ssc.py
-RUN uv run --script /app/ssc.py --help > /dev/null 2>&1 || true
+COPY --chown=root:root entrypoint.sh /entrypoint.sh
+COPY --chown=root:root install.sh /install.sh
+COPY --chown=root:root uninstall.sh /uninstall.sh
+COPY --chown=root:root ssc.py /app/ssc.py
+COPY --chown=root:root url2capture.sh /usr/local/lib/screenshot/url2capture.sh
 
-# Stage 4: final runtime image
-FROM python-deps AS runtime
+# Pre-warm the uv script environment so the first capture does not resolve deps
+RUN uv run --script /app/ssc.py --help > /dev/null
 
 ENV HOME=/root
 ENV SHELL=/bin/bash
 ENV SCREENSHOTS_DIR=/screenshots
 ENV PDFS_DIR=/pdfs
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
 COPY .bashrc /root/.bashrc
 COPY .bash_aliases /root/.bash_aliases
-COPY entrypoint.sh /entrypoint.sh
-COPY install.sh /install.sh
-COPY uninstall.sh /uninstall.sh
-COPY url2capture.sh /usr/local/lib/screenshot/url2capture.sh
 RUN chmod +x /entrypoint.sh /install.sh /uninstall.sh \
     /usr/local/lib/screenshot/url2capture.sh
 
