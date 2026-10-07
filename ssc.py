@@ -24,7 +24,7 @@ from typing import Annotated, Any
 
 import typer
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client as streamablehttp_client
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from rich.console import Console
 from rich.table import Table

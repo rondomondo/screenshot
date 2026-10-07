@@ -1,0 +1,10 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    procps lsof iproute2 net-tools curl wget \
+    dnsutils iputils-ping \
+    strace htop jq less vim file \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+CMD ["/bin/bash"]
