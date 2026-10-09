@@ -1,0 +1,9 @@
+{
+    "name": "screenshot",
+    "version": "1.0.0",
+    "private": true,
+    "dependencies": {
+        "playwright-chromium": "latest",
+        "@duckduckgo/autoconsent": "^16.43.2"
+    }
+}
