@@ -500,6 +500,103 @@ async def capture_screenshot(
     return host_file_path
 
 
+async def capture_element(
+    session: ClientSession,
+    url: str,
+    selector: str,
+    output_dir: Path = DEFAULT_OUT_DIR,
+    output_filename: str | None = None,
+    hide_selectors: list[str] | None = None,
+    wait_text: str | None = None,
+    dismiss_popups: bool = False,
+    custom_selectors: list[str] | None = None,
+    storage_state_path: Path | None = None,
+    convert: str | None = None,
+    viewport_width: int = 1032,
+    viewport_height: int = 1376,
+    device_scale_factor: float = 2.0,
+) -> Path:
+    """Navigate, wait for DOM ready, and capture a single CSS-selected element as PNG.
+
+    Args:
+        session: active MCP client session.
+        url: page URL or file:// URI to load.
+        selector: CSS selector for the element to capture (first match is used).
+        output_dir: directory in which to write the PNG.
+        output_filename: filename for the output PNG; derived from url if omitted.
+        hide_selectors: CSS selectors whose matching elements are hidden before capture.
+        wait_text: optional text to wait for before capturing.
+        dismiss_popups: when True, run autoconsent and overlay cleanup before capture.
+        custom_selectors: additional popup-dismiss selectors (requires dismiss_popups=True).
+        storage_state_path: optional Playwright storageState JSON file.
+        convert: convert output to this format via ImageMagick after capture.
+        viewport_width: viewport width in pixels.
+        viewport_height: viewport height in pixels.
+        device_scale_factor: device pixel ratio for HiDPI output.
+
+    Returns:
+        Path to the captured (and optionally converted) image file.
+
+    Raises:
+        FileNotFoundError: if the output file is missing from the host mount after capture.
+        RuntimeError: if no element matching selector is found.
+    """
+    url = resolve_url(url)
+    logger.info(f"Navigating to {url}")
+    await call_tool(session, "browser_navigate", url=url)
+
+    await set_viewport(session, viewport_width, viewport_height)
+
+    await ensure_page_ready(
+        session,
+        url=url,
+        scroll=False,
+        wait_text=wait_text,
+        dismiss_popups=dismiss_popups,
+        custom_selectors=custom_selectors,
+        storage_state_path=storage_state_path,
+    )
+
+    if hide_selectors:
+        hide_css = ", ".join(hide_selectors)
+        hide_code = f"""async (page) => {{
+            await page.evaluate((sels) => {{
+                document.querySelectorAll(sels).forEach(el => {{ el.style.display = 'none'; }});
+            }}, {json.dumps(hide_css)});
+        }}"""
+        await call_tool(session, "browser_run_code_unsafe", code=hide_code)
+        logger.info(f"Hidden elements matching: {hide_css}")
+
+    filename = output_filename or sanitize_filename(url, extension="png")
+    container_file_path = str(CONTAINER_SCREENSHOT_DIR / filename)
+
+    element_screenshot_code = f"""async (page) => {{
+        const loc = page.locator({json.dumps(selector)}).first();
+        const count = await loc.count();
+        if (count === 0) {{
+            throw new Error('No element found matching selector: {selector}');
+        }}
+        await loc.screenshot({{ path: {json.dumps(container_file_path)}, scale: 'device' }});
+    }}"""
+
+    logger.info(f"Capturing element '{selector}' to {container_file_path}")
+    await call_tool(session, "browser_run_code_unsafe", code=element_screenshot_code)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    host_file_path = output_dir / filename
+
+    if not host_file_path.exists():
+        raise FileNotFoundError(
+            f"Element screenshot completed inside container at '{container_file_path}', "
+            f"but file is missing at host mount '{host_file_path}'."
+        )
+
+    if convert:
+        host_file_path = convert_image(host_file_path, convert)
+
+    return host_file_path
+
+
 async def capture_pdf(
     session: ClientSession,
     url: str,
@@ -621,6 +718,48 @@ def cmd_screenshot(
                 device_scale_factor=device_scale_factor,
             )
             console.print(f"[bold green]Successfully saved screenshot:[/bold green] {str(out_file).lstrip('/')}")
+
+    asyncio.run(run())
+
+
+@app.command("element")
+def cmd_element(
+    url: Annotated[str, typer.Argument(help="Target URL or local HTML file to load.")],
+    selector: Annotated[str, typer.Option("--selector", "-s", help="CSS selector of the element to capture (first match).")],
+    hide: Annotated[list[str] | None, typer.Option("--hide", "-H", help="CSS selectors for elements to hide before capture (repeatable).")] = None,
+    out_dir: Annotated[Path, typer.Option("--out-dir", "-o", help="Target output directory.")] = DEFAULT_OUT_DIR,
+    out_name: Annotated[str | None, typer.Option("--out-name", help="Output filename (default: derived from URL).")] = None,
+    wait_for: Annotated[str | None, typer.Option("--wait-for", "-w", help="Text to wait for before capture.")] = None,
+    dismiss_popups: Annotated[bool, typer.Option("--dismiss-popups/--no-dismiss-popups", help="Run autoconsent and overlay cleanup before capture.")] = False,
+    custom_selector: Annotated[list[str] | None, typer.Option("--custom-selector", "-c", help="Custom CSS selectors for popup dismissal.")] = None,
+    storage_state: Annotated[Path | None, typer.Option("--storage-state", help="Path to Playwright storageState JSON.")] = None,
+    convert: Annotated[str | None, typer.Option("--convert", help="Convert output to this format via ImageMagick (webp, jpeg, gif, ...).")] = None,
+    viewport_size: Annotated[str, typer.Option("--viewport-size", help="Viewport dimensions as WxH (e.g. 1032x1376).")] = DEFAULT_VIEWPORT,
+    device_scale_factor: Annotated[float, typer.Option("--device-scale-factor", help="Device pixel ratio for HiDPI output.")] = DEFAULT_DEVICE_SCALE_FACTOR,
+    mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
+) -> None:
+    """Capture a specific CSS-selected element from a page as a PNG."""
+    vw, vh = parse_viewport(viewport_size)
+
+    async def run() -> None:
+        async with managed_session(mcp_url) as session:
+            out_file = await capture_element(
+                session,
+                url,
+                selector=selector,
+                output_dir=out_dir,
+                output_filename=out_name,
+                hide_selectors=hide,
+                wait_text=wait_for,
+                dismiss_popups=dismiss_popups,
+                custom_selectors=custom_selector,
+                storage_state_path=storage_state,
+                convert=convert,
+                viewport_width=vw,
+                viewport_height=vh,
+                device_scale_factor=device_scale_factor,
+            )
+            console.print(f"[bold green]Successfully saved element screenshot:[/bold green] {str(out_file).lstrip('/')}")
 
     asyncio.run(run())
 

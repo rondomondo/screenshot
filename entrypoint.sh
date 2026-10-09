@@ -140,7 +140,7 @@ case "$COMMAND" in
   uninstall) exec /uninstall.sh "$@" ;;
 esac
 
-[[ "$COMMAND" != "screenshot" && "$COMMAND" != "pdf" ]] && {
+[[ "$COMMAND" != "screenshot" && "$COMMAND" != "pdf" && "$COMMAND" != "element" ]] && {
   echo "Unknown command: $COMMAND" >&2; usage
 }
 
@@ -234,10 +234,14 @@ log "output:   $OUT_FILE"
 PAUSE_MS=$(( WAIT_TIMEOUT_MS / 6 ))
 [[ "$PAUSE_MS" -lt 200 ]] && PAUSE_MS=200
 
-SSC_ARGS+=(--out-dir "$OUT_DIR" --pause "$PAUSE_MS" --viewport-size "$VIEWPORT")
-[[ "$SCROLL" == "false" ]] && SSC_ARGS+=(--no-scroll)
+SSC_ARGS+=(--out-dir "$OUT_DIR" --viewport-size "$VIEWPORT")
+if [[ "$COMMAND" == "screenshot" || "$COMMAND" == "pdf" ]]; then
+  SSC_ARGS+=(--pause "$PAUSE_MS")
+  [[ "$SCROLL" == "false" ]] && SSC_ARGS+=(--no-scroll)
+fi
 [[ "$COMMAND" == "screenshot" ]] && SSC_ARGS+=(--device-scale-factor "$DEVICE_SCALE_FACTOR")
 [[ "$COMMAND" == "pdf" ]] && SSC_ARGS+=(--paper-format "$PAPER_FORMAT")
+[[ "$COMMAND" == "element" ]] && SSC_ARGS+=(--device-scale-factor "$DEVICE_SCALE_FACTOR")
 
 trap mcp_stop EXIT
 mcp_start

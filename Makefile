@@ -15,8 +15,8 @@ REGISTRY   ?= ghcr.io
 IMAGE_REPO := rondomondo/screenshot
 REMOTE     := $(REGISTRY)/$(IMAGE_REPO)
 VERSION     = $(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
-PLATFORMS  := linux/amd64,linux/arm64
-#PLATFORMS  := linux/amd64
+#PLATFORMS  := linux/amd64,linux/arm64
+PLATFORMS  := linux/amd64
 BUILDER    := screenshotter-builder
 NO_CACHE   ?= 0
 _CACHE_FLAG = $(if $(filter 1,$(NO_CACHE)),--no-cache,)
@@ -91,7 +91,6 @@ push: builder-init ## Build multi-platform image and push to ghcr.io (amd64 + ar
 	  --platform $(PLATFORMS) \
 	  --tag $(REMOTE):$(VERSION) \
 	  --tag $(REMOTE):latest \
-	  --tag $(REMOTE):find4 \
 	  --push \
 	  .
 	@printf "$(GREEN)Pushed$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest ($(PLATFORMS))\n"
