@@ -40,7 +40,7 @@ try_remove_bin() {
             warn "could not remove $target (permission denied)"
         fi
     done
-    [ "$removed" -eq 0 ] && info "$name not found in /usr/local/bin or ~/bin -- nothing to remove"
+    [ "$removed" -eq 0 ] && info "$name not found in /usr/local/bin or ~/bin -- nothing to remove" || true
 }
 
 HEADER

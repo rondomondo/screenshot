@@ -16,7 +16,7 @@ IMAGE_REPO := rondomondo/screenshot
 REMOTE     := $(REGISTRY)/$(IMAGE_REPO)
 VERSION     = $(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
 PLATFORMS  := linux/amd64,linux/arm64
-PPLATFORMS  := linux/amd64
+#PLATFORMS  := linux/amd64
 BUILDER    := screenshotter-builder
 NO_CACHE   ?= 0
 _CACHE_FLAG = $(if $(filter 1,$(NO_CACHE)),--no-cache,)
@@ -30,6 +30,9 @@ SESSIONS_DIR    := $(WORKSPACE_DIR)/sessions
 
 SESSION         ?= default
 SESSION_FILE    := $(SESSIONS_DIR)/$(SESSION).json
+
+#EXAMPLE_URL     ?= https://en.wikipedia.org/wiki/Special:Random
+EXAMPLE_URL     ?= https://jax-ml.github.io/scaling-book/index
 
 # -- Help -----------------------------------------------------
 .PHONY: help
@@ -88,6 +91,7 @@ push: builder-init ## Build multi-platform image and push to ghcr.io (amd64 + ar
 	  --platform $(PLATFORMS) \
 	  --tag $(REMOTE):$(VERSION) \
 	  --tag $(REMOTE):latest \
+	  --tag $(REMOTE):find4 \
 	  --push \
 	  .
 	@printf "$(GREEN)Pushed$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest ($(PLATFORMS))\n"
@@ -160,19 +164,13 @@ define RUN_MCP_CLIENT
 endef
 
 .PHONY: screenshot
-screenshot: ## Take a full-page screenshot using the MCP engine: make screenshot TARGET=https://en.wikipedia.org/wiki/Special:Random [ARGS="--no-scroll"]
-	@if [ -z "$(TARGET)" ]; then \
-		printf "$(RED)Error: TARGET is required. Usage: make screenshot TARGET=https://en.wikipedia.org/wiki/Special:Random$(RESET)\n"; \
-		exit 1; \
-	fi
+screenshot: ## Take a full-page screenshot (defaults to EXAMPLE_URL): make screenshot [TARGET=https://...] [ARGS="--no-scroll"]
+	$(eval TARGET ?= $(EXAMPLE_URL))
 	$(call RUN_MCP_CLIENT,screenshot)
 
 .PHONY: pdf
-pdf: ## Save page as PDF using screen colors & DOM readiness: make pdf TARGET=https://en.wikipedia.org/wiki/Special:Random [ARGS="--pause 1000"]
-	@if [ -z "$(TARGET)" ]; then \
-		printf "$(RED)Error: TARGET is required. Usage: make pdf TARGET=https://en.wikipedia.org/wiki/Special:Random$(RESET)\n"; \
-		exit 1; \
-	fi
+pdf: ## Save page as PDF (defaults to EXAMPLE_URL): make pdf [TARGET=https://...] [ARGS="--pause 1000"]
+	$(eval TARGET ?= $(EXAMPLE_URL))
 	$(call RUN_MCP_CLIENT,pdf)
 
 .PHONY: mcp-up
@@ -203,6 +201,42 @@ docker-shell: ## Open an interactive bash shell in the image
 	docker run --rm -it --entrypoint bash $(REMOTE):$(VERSION)
 
 ##@ Info
+
+.PHONY: examples
+examples: ## Print cut-and-paste usage examples
+	@printf "\n$(BOLD)Install onto your host$(RESET)\n"
+	@printf "  docker run --rm $(REMOTE):latest install | sh\n"
+	@printf "  docker run --rm $(REMOTE):latest uninstall | sh\n"
+	@printf "\n$(BOLD)url2image / url2pdf (after install)$(RESET)\n"
+	@printf "  url2image $(EXAMPLE_URL)\n"
+	@printf "  url2image $(EXAMPLE_URL) --convert webp\n"
+	@printf "  url2image $(EXAMPLE_URL) --no-scroll --viewport-size 1920x1080\n"
+	@printf "  url2pdf   $(EXAMPLE_URL)\n"
+	@printf "  url2pdf   $(EXAMPLE_URL) --convert jpeg\n"
+	@printf "  url2pdf   $(EXAMPLE_URL) --paper-format Letter --wait-for-timeout 5000\n"
+	@printf "  DEBUG=1   url2pdf $(EXAMPLE_URL)\n"
+	@printf "\n$(BOLD)Docker directly$(RESET)\n"
+	@printf "  docker run --rm \\\\\n"
+	@printf "    -v \$$(pwd)/screenshots:/screenshots \\\\\n"
+	@printf "    -v \$$(pwd)/pdfs:/pdfs \\\\\n"
+	@printf "    $(REMOTE):latest screenshot $(EXAMPLE_URL)\n"
+	@printf "  docker run --rm \\\\\n"
+	@printf "    -v \$$(pwd)/screenshots:/screenshots \\\\\n"
+	@printf "    -v \$$(pwd)/pdfs:/pdfs \\\\\n"
+	@printf "    -v \$$(pwd)/html:/html:ro \\\\\n"
+	@printf "    $(REMOTE):latest screenshot my-page.html\n"
+	@printf "\n$(BOLD)make screenshot / make pdf (via MCP client)$(RESET)\n"
+	@printf "  make screenshot TARGET=$(EXAMPLE_URL)\n"
+	@printf "  make screenshot TARGET=$(EXAMPLE_URL) ARGS=\"--convert webp\"\n"
+	@printf "  make screenshot TARGET=my-page.html\n"
+	@printf "  make pdf        TARGET=$(EXAMPLE_URL)\n"
+	@printf "  make pdf        TARGET=$(EXAMPLE_URL) ARGS=\"--paper-format Letter\"\n"
+	@printf "\n$(BOLD)MCP server$(RESET)\n"
+	@printf "  make mcp-up\n"
+	@printf "  make mcp-up SESSION=mysite\n"
+	@printf "  make mcp-down\n"
+	@printf "  make status\n"
+	@printf "\n"
 
 .PHONY: status
 status: ## Show running containers, health, and MCP connection details
@@ -259,7 +293,7 @@ clean-builder: ## Remove the buildx builder instance
 
 .PHONY: clean-generated
 clean-generated: ## Empty screenshots/ and pdfs/ output directories
-	@rm -rf "$(SCREENSHOTS_DIR)"/* "$(PDFS_DIR)"/*
+	@rm -rf "$(SCREENSHOTS_DIR)"/* "$(PDFS_DIR)"/* "$(HTML_DIR)"/*.png "$(HTML_DIR)"/*.pdf
 	@printf "$(GREEN)Cleared$(RESET) $(SCREENSHOTS_DIR) and $(PDFS_DIR)\n"
 
 .PHONY: clean-python

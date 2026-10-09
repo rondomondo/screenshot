@@ -34,14 +34,14 @@ Then use them from any directory:
 
 ```bash
 url2pdf https://en.wikipedia.org/wiki/Special:Random
-url2image https://example.com --convert webp
+url2image https://en.wikipedia.org/wiki/Special:Random --convert webp
 ```
 
 Output lands in `./pdfs/` and `./screenshots/` relative to wherever you run the command.
 Pass `DEBUG=1` to print the full `docker run` invocation before it executes:
 
 ```bash
-DEBUG=1 url2pdf https://example.com
+DEBUG=1 url2pdf https://en.wikipedia.org/wiki/Special:Random
 ```
 
 To uninstall:
@@ -57,15 +57,15 @@ Flags may appear before or after the target.
 
 ```bash
 # Save as PDF
-url2pdf https://example.com
-url2pdf https://example.com --convert jpeg
-url2pdf https://example.com --paper-format Letter --wait-for-timeout 5000
+url2pdf https://en.wikipedia.org/wiki/Special:Random
+url2pdf https://en.wikipedia.org/wiki/Special:Random --convert jpeg
+url2pdf https://en.wikipedia.org/wiki/Special:Random --paper-format Letter --wait-for-timeout 5000
 
 # Capture screenshot
-url2image https://example.com
-url2image https://example.com --convert webp
-url2image https://example.com --no-scroll        # viewport only, no full-page scroll
-url2image https://example.com --convert webp --viewport-size 1920x1080
+url2image https://en.wikipedia.org/wiki/Special:Random
+url2image https://en.wikipedia.org/wiki/Special:Random --convert webp
+url2image https://en.wikipedia.org/wiki/Special:Random --no-scroll        # viewport only, no full-page scroll
+url2image https://en.wikipedia.org/wiki/Special:Random --convert webp --viewport-size 1920x1080
 ```
 
 Both commands:
@@ -81,23 +81,23 @@ dynamic popup/overlay dismissal before capture.
 
 ```bash
 # Screenshot a URL
-make screenshot TARGET=https://example.com
+make screenshot TARGET=https://en.wikipedia.org/wiki/Special:Random
 
 # Screenshot and convert to WebP
-make screenshot TARGET=https://example.com ARGS="--convert webp"
+make screenshot TARGET=https://en.wikipedia.org/wiki/Special:Random ARGS="--convert webp"
 
 # Save a page as PDF (A4 by default)
-make pdf TARGET=https://example.com
+make pdf TARGET=https://en.wikipedia.org/wiki/Special:Random
 
 # PDF with Letter paper size
-make pdf TARGET=https://example.com ARGS="--paper-format Letter"
+make pdf TARGET=https://en.wikipedia.org/wiki/Special:Random ARGS="--paper-format Letter"
 
 # Screenshot a local HTML file (place it in ./html/ first)
 make screenshot TARGET=my-page.html
 ```
 
 Output lands in `./screenshots/` or `./pdfs/`. Filenames are derived from the URL or file name,
-e.g. `https://example.com/foo/bar` -> `example-com-foo-bar.png`.
+e.g. `https://en.wikipedia.org/wiki/Special:Random/foo/bar` -> `example-com-foo-bar.png`.
 
 If the MCP server is not already running, `make screenshot` / `make pdf` will spin it up
 automatically and tear it down again when done.
@@ -109,7 +109,7 @@ docker run --rm \
   -v $(pwd)/screenshots:/screenshots \
   -v $(pwd)/pdfs:/pdfs \
   ghcr.io/rondomondo/screenshot:latest \
-  screenshot https://example.com
+  screenshot https://en.wikipedia.org/wiki/Special:Random
 ```
 
 For local HTML files, also mount `./html/`:
@@ -130,7 +130,7 @@ docker run --rm -e DEBUG=1 \
   -v $(pwd)/screenshots:/screenshots \
   -v $(pwd)/pdfs:/pdfs \
   ghcr.io/rondomondo/screenshot:latest \
-  screenshot https://example.com
+  screenshot https://en.wikipedia.org/wiki/Special:Random
 ```
 
 ## Entrypoint options

@@ -16,6 +16,7 @@ import base64
 import json
 import logging
 import os
+import subprocess
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -245,12 +246,61 @@ async def call_tool(session: ClientSession, tool: str, **params: Any) -> list[Te
         raise
 
 
+CONTAINER_HTML_DIR = Path("/html")
+HOST_HTML_DIR = Path(os.getenv("HTML_DIR", "./html"))
+
+
+def resolve_url(url: str) -> str:
+    """Return a browser-navigable URL, mapping local HTML file paths to their container file:// URI.
+
+    Local paths are resolved relative to HTML_DIR on the host and served from /html inside
+    the MCP container (which mounts ./html:/html:ro).
+
+    Args:
+        url: a URL or local filesystem path.
+
+    Returns:
+        An absolute URL suitable for browser_navigate.
+    """
+    p = Path(url)
+    if p.suffix.lower() in {".html", ".htm"} and not url.startswith(("http://", "https://", "file://")):
+        filename = p.name
+        return (CONTAINER_HTML_DIR / filename).as_uri()
+    return url
+
+
 def sanitize_filename(url: str, extension: str = "png") -> str:
     """Derive clean, collision-free filename stem from URL."""
+    if url.startswith("file://"):
+        stem = Path(url.removeprefix("file://")).stem
+        return f"{stem}.{extension}"
     stem = url.removeprefix("https://").removeprefix("http://")
     stem = stem.split("?")[0].split("#")[0]
     clean_stem = "".join(c if c.isalnum() else "-" for c in stem).strip("-")
     return f"{clean_stem}.{extension}"
+
+
+def convert_image(src: Path, target_format: str) -> Path:
+    """Convert an image file to another format using ImageMagick.
+
+    Args:
+        src: source image path.
+        target_format: extension for the output format (e.g. "webp", "jpeg").
+
+    Returns:
+        Path to the converted file (replaces the source).
+
+    Raises:
+        RuntimeError: if ImageMagick exits non-zero, with stderr included.
+    """
+    dest = src.with_suffix(f".{target_format}")
+    result = subprocess.run(["convert", str(src), str(dest)], capture_output=True, text=True)
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        raise RuntimeError(f"ImageMagick conversion to {target_format} failed: {stderr}")
+    if dest != src:
+        src.unlink()
+    return dest
 
 
 def load_storage_state(state_path: Path) -> dict[str, Any]:
@@ -377,6 +427,15 @@ async def ensure_page_ready(
 
 # Core Action Handlers
 
+async def set_viewport(session: ClientSession, width: int, height: int) -> None:
+    """Resize the browser viewport."""
+    viewport_code = f"""async (page) => {{
+        await page.setViewportSize({{ width: {width}, height: {height} }});
+    }}"""
+    await call_tool(session, "browser_run_code_unsafe", code=viewport_code)
+    logger.info(f"Viewport set to {width}x{height}")
+
+
 async def capture_screenshot(
     session: ClientSession,
     url: str,
@@ -387,10 +446,17 @@ async def capture_screenshot(
     dismiss_popups: bool = True,
     custom_selectors: list[str] | None = None,
     storage_state_path: Path | None = None,
+    convert: str | None = None,
+    viewport_width: int = 1032,
+    viewport_height: int = 1376,
+    device_scale_factor: float = 2.0,
 ) -> Path:
     """Navigate, wait for page ready & scroll, clear popups, and capture screenshot."""
+    url = resolve_url(url)
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
+
+    await set_viewport(session, viewport_width, viewport_height)
 
     await ensure_page_ready(
         session,
@@ -406,9 +472,10 @@ async def capture_screenshot(
     filename = sanitize_filename(url, extension="png")
     container_file_path = str(CONTAINER_SCREENSHOT_DIR / filename)
 
-    screenshot_options = {
+    screenshot_options: dict[str, Any] = {
         "path": container_file_path,
         "fullPage": True,
+        "scale": "device" if device_scale_factor > 1.0 else "css",
     }
 
     screenshot_render_code = f"""async (page) => {{
@@ -427,6 +494,9 @@ async def capture_screenshot(
             f"but file is missing at host mount '{host_file_path}'."
         )
 
+    if convert:
+        host_file_path = convert_image(host_file_path, convert)
+
     return host_file_path
 
 
@@ -439,10 +509,16 @@ async def capture_pdf(
     dismiss_popups: bool = True,
     custom_selectors: list[str] | None = None,
     storage_state_path: Path | None = None,
+    viewport_width: int = 1032,
+    viewport_height: int = 1376,
+    paper_format: str = "A4",
 ) -> Path:
     """Render page to PDF with screen colors, DOM settlement, and popup removal."""
+    url = resolve_url(url)
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
+
+    await set_viewport(session, viewport_width, viewport_height)
 
     await ensure_page_ready(
         session,
@@ -460,7 +536,7 @@ async def capture_pdf(
     pdf_options = {
         "path": container_file_path,
         "printBackground": True,
-        "format": "A4",
+        "format": paper_format,
         "margin": {"top": "1cm", "right": "1cm", "bottom": "1cm", "left": "1cm"},
         "preferCSSPageSize": True,
     }
@@ -486,6 +562,29 @@ async def capture_pdf(
 
 # CLI Command Entrypoints
 
+DEFAULT_VIEWPORT = "1032x1376"
+DEFAULT_DEVICE_SCALE_FACTOR = 2.0
+
+
+def parse_viewport(viewport: str) -> tuple[int, int]:
+    """Parse a WxH viewport string into (width, height) integers.
+
+    Args:
+        viewport: string in the form WxH, e.g. "1032x1376".
+
+    Returns:
+        Tuple of (width, height).
+
+    Raises:
+        typer.BadParameter: if the format is invalid.
+    """
+    try:
+        w, h = viewport.lower().split("x")
+        return int(w), int(h)
+    except (ValueError, AttributeError):
+        raise typer.BadParameter(f"Viewport must be WxH (e.g. 1032x1376), got: {viewport!r}")
+
+
 @app.command("screenshot")
 def cmd_screenshot(
     url: Annotated[str, typer.Argument(help="Target URL to capture.")],
@@ -496,9 +595,14 @@ def cmd_screenshot(
     dismiss_popups: Annotated[bool, typer.Option("--dismiss-popups/--no-dismiss-popups", help="Automatically dismiss cookie consent and delayed popups.")] = True,
     custom_selector: Annotated[list[str] | None, typer.Option("--custom-selector", "-c", help="Custom CSS selectors to click for specific site popups.")] = None,
     out_dir: Annotated[Path, typer.Option("--out-dir", "-o", help="Target output directory.")] = DEFAULT_OUT_DIR,
+    convert: Annotated[str | None, typer.Option("--convert", help="Convert output to this format via ImageMagick (jpeg, png, webp, heic, ps, gif).")] = None,
+    viewport_size: Annotated[str, typer.Option("--viewport-size", help="Viewport dimensions as WxH (e.g. 1032x1376).")] = DEFAULT_VIEWPORT,
+    device_scale_factor: Annotated[float, typer.Option("--device-scale-factor", help="Device pixel ratio for high-DPI output (e.g. 2 for retina).")] = DEFAULT_DEVICE_SCALE_FACTOR,
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Capture a high-resolution full-page screenshot of a webpage."""
+    vw, vh = parse_viewport(viewport_size)
+
     async def run() -> None:
         async with managed_session(mcp_url) as session:
             out_file = await capture_screenshot(
@@ -511,6 +615,10 @@ def cmd_screenshot(
                 dismiss_popups=dismiss_popups,
                 custom_selectors=custom_selector,
                 storage_state_path=storage_state,
+                convert=convert,
+                viewport_width=vw,
+                viewport_height=vh,
+                device_scale_factor=device_scale_factor,
             )
             console.print(f"[bold green]Successfully saved screenshot:[/bold green] {str(out_file).lstrip('/')}")
 
@@ -526,9 +634,13 @@ def cmd_pdf(
     dismiss_popups: Annotated[bool, typer.Option("--dismiss-popups/--no-dismiss-popups", help="Automatically dismiss cookie consent and delayed popups.")] = True,
     custom_selector: Annotated[list[str] | None, typer.Option("--custom-selector", "-c", help="Custom CSS selectors to click for specific site popups.")] = None,
     out_dir: Annotated[Path, typer.Option("--out-dir", "-o", help="Target output directory.")] = DEFAULT_PDF_DIR,
+    viewport_size: Annotated[str, typer.Option("--viewport-size", help="Viewport dimensions as WxH (e.g. 1032x1376).")] = DEFAULT_VIEWPORT,
+    paper_format: Annotated[str, typer.Option("--paper-format", help="PDF paper format (A4, Letter, A3, etc.).")] = "A4",
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Render and capture target URL as a PDF document."""
+    vw, vh = parse_viewport(viewport_size)
+
     async def run() -> None:
         async with managed_session(mcp_url) as session:
             out_file = await capture_pdf(
@@ -540,6 +652,9 @@ def cmd_pdf(
                 dismiss_popups=dismiss_popups,
                 custom_selectors=custom_selector,
                 storage_state_path=storage_state,
+                viewport_width=vw,
+                viewport_height=vh,
+                paper_format=paper_format,
             )
             console.print(f"[bold green]Successfully rendered PDF:[/bold green] {str(out_file).lstrip('/')}")
 

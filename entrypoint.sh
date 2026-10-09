@@ -38,14 +38,15 @@ Target:
   A URL (https://...) or a local HTML file path (relative to /html inside the container)
 
 Options:
-  --convert <fmt>          Convert output to fmt after capture (webp, jpeg, gif, ...)
-  --out-dir <dir>          Override output directory (default: /screenshots or /pdfs)
-  --wait-for-timeout <ms>  Wait before capture; maps to --pause for MCP client (default: 3000)
-  --viewport-size <WxH>    Viewport size (default: 1032x1376)
-  --full-page              Capture full page (screenshot only, default: on)
-  --no-scroll              Capture viewport only (no pre-render scroll)
-  --ignore-https-errors    Ignore TLS errors (default: on)
-  --paper-format <fmt>     Paper format for PDF (default: A4)
+  --convert <fmt>              Convert output to fmt after capture (webp, jpeg, gif, ...)
+  --out-dir <dir>              Override output directory (default: /screenshots or /pdfs)
+  --wait-for-timeout <ms>      Wait before capture; maps to --pause for MCP client (default: 3000)
+  --viewport-size <WxH>        Viewport size (default: 1032x1376)
+  --device-scale-factor <n>    Device pixel ratio for high-DPI output (default: 2, screenshot only)
+  --full-page                  Capture full page (screenshot only, default: on)
+  --no-scroll                  Capture viewport only (no pre-render scroll)
+  --ignore-https-errors        Ignore TLS errors (default: on)
+  --paper-format <fmt>         Paper format for PDF (default: A4)
   --wait-for <text>        Wait for text to appear before capture (MCP mode only)
   --storage-state <path>   Path to Playwright storageState JSON (MCP mode only)
   --custom-selector <sel>  CSS selector for popup dismissal (MCP mode only, repeatable)
@@ -78,6 +79,19 @@ derive_stem() {
 
 mcp_start() {
   log "Starting embedded MCP server on port ${MCP_PORT}..."
+
+  # Write a minimal playwright MCP config so we can set deviceScaleFactor and viewport.
+  # The VIEWPORT and DEVICE_SCALE_FACTOR variables are set before mcp_start is called.
+  local vw vh
+  IFS='x' read -r vw vh <<< "$VIEWPORT"
+  local mcp_config_file="/tmp/mcp-config.json"
+  printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s}}}}' \
+    "$DEVICE_SCALE_FACTOR" "$vw" "$vh" > "$mcp_config_file"
+
+  local exec_path_arg=()
+  if [[ -n "${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}" ]]; then
+    exec_path_arg=(--executable-path "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH")
+  fi
   node "$PW_MCP_CLI" mcp \
     --headless \
     --isolated \
@@ -86,6 +100,8 @@ mcp_start() {
     --host 127.0.0.1 \
     --allowed-hosts '*' \
     --allow-unrestricted-file-access \
+    --config "$mcp_config_file" \
+    "${exec_path_arg[@]}" \
     &>/tmp/mcp-server.log &
   MCP_PID=$!
 
@@ -135,6 +151,7 @@ SCROLL=true
 WAIT_TIMEOUT_MS=3000
 VIEWPORT="1032x1376"
 PAPER_FORMAT="A4"
+DEVICE_SCALE_FACTOR="2"
 
 # ssc.py forwarded args (built up as we parse)
 SSC_ARGS=()
@@ -157,6 +174,9 @@ while [[ $# -gt 0 ]]; do
     --paper-format)
       [[ $# -lt 2 ]] && fail "--paper-format requires a value"
       PAPER_FORMAT="$2"; shift 2 ;;
+    --device-scale-factor)
+      [[ $# -lt 2 ]] && fail "--device-scale-factor requires a value"
+      DEVICE_SCALE_FACTOR="$2"; shift 2 ;;
     --full-page)
       shift ;;
     --ignore-https-errors)
@@ -214,8 +234,10 @@ log "output:   $OUT_FILE"
 PAUSE_MS=$(( WAIT_TIMEOUT_MS / 6 ))
 [[ "$PAUSE_MS" -lt 200 ]] && PAUSE_MS=200
 
-SSC_ARGS+=(--out-dir "$OUT_DIR" --pause "$PAUSE_MS")
+SSC_ARGS+=(--out-dir "$OUT_DIR" --pause "$PAUSE_MS" --viewport-size "$VIEWPORT")
 [[ "$SCROLL" == "false" ]] && SSC_ARGS+=(--no-scroll)
+[[ "$COMMAND" == "screenshot" ]] && SSC_ARGS+=(--device-scale-factor "$DEVICE_SCALE_FACTOR")
+[[ "$COMMAND" == "pdf" ]] && SSC_ARGS+=(--paper-format "$PAPER_FORMAT")
 
 trap mcp_stop EXIT
 mcp_start
