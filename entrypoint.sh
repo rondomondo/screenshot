@@ -101,6 +101,7 @@ mcp_start() {
   if [[ -n "${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}" ]]; then
     exec_path_arg=(--executable-path "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH")
   fi
+  log "  node $PW_MCP_CLI mcp --headless --isolated --port $MCP_PORT --browser chromium --host 127.0.0.1 --allowed-hosts '*' --allow-unrestricted-file-access --config $mcp_config_file${exec_path_arg[*]:+ ${exec_path_arg[*]}}"
   node "$PW_MCP_CLI" mcp \
     --headless \
     --isolated \
@@ -292,6 +293,7 @@ trap mcp_stop EXIT
 mcp_start
 
 log "Running ssc.py ${COMMAND}..."
+log "  uv run --script $SSC $COMMAND ${SSC_ARGS[*]} --url $MCP_URL $RESOLVED_TARGET"
 uv run --script "$SSC" "$COMMAND" "${SSC_ARGS[@]}" --url "$MCP_URL" "$RESOLVED_TARGET"
 
 ok "saved ${OUT_FILE#/}"

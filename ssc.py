@@ -39,6 +39,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mcp_client")
 
+class McpConnectionError(Exception):
+    """Raised when all MCP connection attempts fail; message already printed."""
+
+
 app = typer.Typer(
     name="ssc",
     help="Playwright-based MCP client for screenshot and PDF captures with autoconsent and overlay cleanup.",
@@ -211,7 +215,16 @@ async def open_session(
                 await asyncio.sleep(delay * (1.5 ** (attempt - 1)))
     
     err_console.print(f"[bold red]Error:[/bold red] Failed to connect to MCP server at {mcp_url}")
-    raise last_exc  # type: ignore[misc]
+    if "localhost" in mcp_url or "127.0.0.1" in mcp_url:
+        from urllib.parse import urlparse
+        port = urlparse(mcp_url).port or DEFAULT_MCP_PORT
+        err_console.print(
+            f"[yellow]Hint:[/yellow] The Playwright MCP server does not appear to be running. "
+            f"Start it with:\n"
+            f"  node <playwright-core/cli.js> mcp --headless --isolated --port {port} "
+            f"--browser chromium --host 127.0.0.1 --allowed-hosts '*' --allow-unrestricted-file-access"
+        )
+    raise McpConnectionError() from last_exc
 
 
 async def close_session(session: ClientSession) -> None:
@@ -787,7 +800,10 @@ def cmd_screenshot(
             )
             console.print(f"[bold green]Successfully saved screenshot:[/bold green] {str(out_file).lstrip('/')}")
 
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except McpConnectionError:
+        sys.exit(1)
 
 
 @app.command("element")
@@ -833,7 +849,10 @@ def cmd_element(
             )
             console.print(f"[bold green]Successfully saved element screenshot:[/bold green] {str(out_file).lstrip('/')}")
 
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except McpConnectionError:
+        sys.exit(1)
 
 
 @app.command("pdf")
@@ -873,9 +892,12 @@ def cmd_pdf(
                 user_agent=user_agent,
                 device=device,
             )
-            console.print(f"[bold green]Successfully rendered PDF:[/bold green] {str(out_file).lstrip('/')}")
+            console.print(f"[bold green]Successfully rendered PDF:[/bold green] {str(out_file).lstrip('/')}", overflow="ignore", no_wrap=True)
 
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except McpConnectionError:
+        sys.exit(1)
 
 
 @app.command("devices")
@@ -938,7 +960,10 @@ def cmd_list_tools(
                 table.add_row(tool.name, tool.description or "")
             console.print(table)
 
-    asyncio.run(run())
+    try:
+        asyncio.run(run())
+    except McpConnectionError:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
