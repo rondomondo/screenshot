@@ -33,6 +33,7 @@ usage() {
             printf "  --viewport-size <WxH>   Viewport dimensions (default: 1032x1376)\n" >&2
             printf "  --paper-format <fmt>    Paper format (default: A4)\n" >&2
             printf "  --headers-footers       Include browser-generated header and footer\n" >&2
+            printf "  --no-unclip             Disable scroll-container freeing (default: on)\n" >&2
             printf "  --ignore-https-errors   Ignore TLS errors\n" >&2
             printf "\n${BOLD}Examples:${RESET}\n" >&2
             printf "  url2pdf https://en.wikipedia.org/wiki/Special:Random\n" >&2

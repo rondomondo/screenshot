@@ -670,7 +670,7 @@ async def capture_pdf(
     display_header_footer: bool = False,
     user_agent: str = DEFAULT_USER_AGENT,
     device: str | None = None,
-    unclip: bool = False,
+    unclip: bool = True,
     hide_selectors: list[str] | None = None,
 ) -> Path:
     """Render page to PDF with screen colors, DOM settlement, and popup removal."""
@@ -955,7 +955,7 @@ def cmd_pdf(
     user_agent: Annotated[str, typer.Option("--user-agent", help="Browser user-agent string.")] = DEFAULT_USER_AGENT,
     device: Annotated[str | None, typer.Option("--device", help="Playwright device name to emulate (overrides viewport and UA). Use 'devices' command to list.")] = None,
     hide: Annotated[list[str] | None, typer.Option("--hide", "-H", help="CSS selectors for elements to hide before PDF render, e.g. sidebars/TOCs (repeatable).")] = None,
-    unclip: Annotated[bool, typer.Option("--unclip/--no-unclip", help="Last resort: free fixed-height scroll containers so long app-shell pages paginate instead of printing as one clipped page.")] = False,
+    unclip: Annotated[bool, typer.Option("--unclip/--no-unclip", help="Free fixed-height scroll containers so long app-shell pages paginate instead of printing as one clipped page.")] = True,
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Render and capture target URL as a PDF document."""

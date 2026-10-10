@@ -73,6 +73,7 @@ Options:
   --wait-for-timeout <ms>     Wait before capture (default: 3000)
   --viewport-size <WxH>       Viewport dimensions (default: 1032x1376)
   --paper-format <fmt>        Paper format for PDF (default: A4)
+  --no-unclip                 Disable scroll-container freeing before PDF render (default: on)
   --no-scroll                 Capture viewport only, skip full-page scroll
   --ignore-https-errors       Ignore TLS errors
   --out-dir <dir>             Override output directory
