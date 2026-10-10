@@ -399,6 +399,8 @@ async def ensure_page_ready(
     dismiss_popups: bool = True,
     custom_selectors: list[str] | None = None,
     storage_state_path: Path | None = None,
+    viewport_width: int = 1032,
+    viewport_height: int = 1376,
 ) -> None:
     """Wait for DOM settlement, apply session state, autoconsent, scroll, and clear popups."""
     
@@ -407,15 +409,16 @@ async def ensure_page_ready(
 
     logger.info("Waiting for DOM content, network idle, and font loading...")
     
-    readiness_js = """async (page) => {
+    readiness_js = f"""async (page) => {{
+        await page.setViewportSize({{ width: {viewport_width}, height: {viewport_height} }});
         await page.waitForLoadState('domcontentloaded');
-        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        await page.waitForLoadState('networkidle', {{ timeout: 15000 }}).catch(() => {{}});
         await page.evaluate(() => document.fonts.ready);
-        await page.emulateMedia({ media: 'screen' });
-        await page.addStyleTag({
-            content: '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }'
-        });
-    }"""
+        await page.emulateMedia({{ media: 'screen' }});
+        await page.addStyleTag({{
+            content: '* {{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }}'
+        }});
+    }}"""
     await call_tool(session, "browser_run_code_unsafe", code=readiness_js)
 
     if dismiss_popups:
@@ -511,6 +514,8 @@ async def capture_screenshot(
         dismiss_popups=dismiss_popups,
         custom_selectors=custom_selectors,
         storage_state_path=storage_state_path,
+        viewport_width=viewport_width,
+        viewport_height=viewport_height,
     )
 
     filename = sanitize_filename(url, extension="png")
@@ -562,33 +567,7 @@ async def capture_element(
     user_agent: str = DEFAULT_USER_AGENT,
     device: str | None = None,
 ) -> Path:
-    """Navigate, wait for DOM ready, and capture a single CSS-selected element as PNG.
-
-    Args:
-        session: active MCP client session.
-        url: page URL or file:// URI to load.
-        selector: CSS selector for the element to capture (first match is used).
-        output_dir: directory in which to write the PNG.
-        output_filename: filename for the output PNG; derived from url if omitted.
-        hide_selectors: CSS selectors whose matching elements are hidden before capture.
-        wait_text: optional text to wait for before capturing.
-        dismiss_popups: when True, run autoconsent and overlay cleanup before capture.
-        custom_selectors: additional popup-dismiss selectors (requires dismiss_popups=True).
-        storage_state_path: optional Playwright storageState JSON file.
-        convert: convert output to this format via ImageMagick after capture.
-        viewport_width: viewport width in pixels.
-        viewport_height: viewport height in pixels.
-        device_scale_factor: device pixel ratio for HiDPI output.
-        user_agent: browser user-agent string.
-        device: Playwright device name; overrides viewport, scale, and user-agent when set.
-
-    Returns:
-        Path to the captured (and optionally converted) image file.
-
-    Raises:
-        FileNotFoundError: if the output file is missing from the host mount after capture.
-        RuntimeError: if no element matching selector is found.
-    """
+    """Navigate, wait for DOM ready, and capture a single CSS-selected element as PNG."""
     if device:
         descriptor = resolve_device(device)
         viewport_width = descriptor["viewport"]["width"]
@@ -608,6 +587,8 @@ async def capture_element(
         dismiss_popups=dismiss_popups,
         custom_selectors=custom_selectors,
         storage_state_path=storage_state_path,
+        viewport_width=viewport_width,
+        viewport_height=viewport_height,
     )
 
     if hide_selectors:
@@ -700,6 +681,8 @@ async def capture_pdf(
         dismiss_popups=dismiss_popups,
         custom_selectors=custom_selectors,
         storage_state_path=storage_state_path,
+        viewport_width=viewport_width,
+        viewport_height=viewport_height,
     )
 
     flatten_fixed_js = """async (page) => {
@@ -755,17 +738,7 @@ DEFAULT_DEVICE_SCALE_FACTOR = 2.0
 
 
 def parse_viewport(viewport: str) -> tuple[int, int]:
-    """Parse a WxH viewport string into (width, height) integers.
-
-    Args:
-        viewport: string in the form WxH, e.g. "1032x1376".
-
-    Returns:
-        Tuple of (width, height).
-
-    Raises:
-        typer.BadParameter: if the format is invalid.
-    """
+    """Parse a WxH viewport string into (width, height) integers."""
     try:
         w, h = viewport.lower().split("x")
         return int(w), int(h)
@@ -946,6 +919,8 @@ def cmd_device_info(
     print(f"VIEWPORT={vp['width']}x{vp['height']}")
     print(f"DEVICE_SCALE_FACTOR={descriptor['deviceScaleFactor']}")
     print(f"USER_AGENT={descriptor['userAgent']}")
+    print(f"IS_MOBILE={str(descriptor.get('isMobile', False)).lower()}")
+    print(f"HAS_TOUCH={str(descriptor.get('hasTouch', False)).lower()}")
 
 
 @app.command("tools")

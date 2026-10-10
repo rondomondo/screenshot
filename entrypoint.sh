@@ -61,8 +61,6 @@ EOF
 }
 
 # Derive a kebab-case filename stem from a URL or file path.
-# https://some.domain.com/a/path/resource.html -> some-domain-com-a-path-resource-html
-# /html/some-file.html                         -> some-file
 derive_stem() {
   local target="$1"
   local stem
@@ -85,17 +83,18 @@ mcp_start() {
   log "Starting embedded MCP server on port ${MCP_PORT}..."
 
   # Write a minimal playwright MCP config so context options are baked in before any navigation.
-  # VIEWPORT, DEVICE_SCALE_FACTOR, and USER_AGENT are fully resolved before mcp_start is called.
+  # VIEWPORT, DEVICE_SCALE_FACTOR, USER_AGENT, IS_MOBILE, and HAS_TOUCH are fully resolved before mcp_start is called.
   local vw vh
   IFS='x' read -r vw vh <<< "$VIEWPORT"
   local mcp_config_file="/tmp/mcp-config.json"
   if [[ -n "$USER_AGENT" ]]; then
-    printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s},"userAgent":%s}}}' \
+    printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s},"userAgent":%s,"isMobile":%s,"hasTouch":%s}}}' \
       "$DEVICE_SCALE_FACTOR" "$vw" "$vh" "$(printf '%s' "$USER_AGENT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
+      "${IS_MOBILE:-false}" "${HAS_TOUCH:-false}" \
       > "$mcp_config_file"
   else
-    printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s}}}}' \
-      "$DEVICE_SCALE_FACTOR" "$vw" "$vh" > "$mcp_config_file"
+    printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s},"isMobile":%s,"hasTouch":%s}}}' \
+      "$DEVICE_SCALE_FACTOR" "$vw" "$vh" "${IS_MOBILE:-false}" "${HAS_TOUCH:-false}" > "$mcp_config_file"
   fi
 
   local exec_path_arg=()
@@ -165,6 +164,8 @@ DISPLAY_HEADER_FOOTER=false
 DEVICE_SCALE_FACTOR="2"
 USER_AGENT=""
 DEVICE=""
+IS_MOBILE="false"
+HAS_TOUCH="false"
 
 # ssc.py forwarded args (built up as we parse)
 SSC_ARGS=()
@@ -258,7 +259,6 @@ PAUSE_MS=$(( WAIT_TIMEOUT_MS / 6 ))
 [[ "$PAUSE_MS" -lt 200 ]] && PAUSE_MS=200
 
 # Resolve device descriptor before starting MCP so context options are baked in correctly.
-# --device overrides VIEWPORT, DEVICE_SCALE_FACTOR, and USER_AGENT.
 if [[ -n "$DEVICE" ]]; then
   log "Resolving device: $DEVICE"
   device_info=$(uv run --script "$SSC" device-info "$DEVICE") || fail "Unknown device: $DEVICE"
@@ -269,9 +269,12 @@ if [[ -n "$DEVICE" ]]; then
       VIEWPORT)            VIEWPORT="$value" ;;
       DEVICE_SCALE_FACTOR) DEVICE_SCALE_FACTOR="$value" ;;
       USER_AGENT)          USER_AGENT="$value" ;;
+      IS_MOBILE)           IS_MOBILE="$value" ;;
+      HAS_TOUCH)           HAS_TOUCH="$value" ;;
     esac
   done <<< "$device_info"
-  log "Device resolved: viewport=$VIEWPORT scale=$DEVICE_SCALE_FACTOR"
+  log "Device resolved: viewport=$VIEWPORT scale=$DEVICE_SCALE_FACTOR isMobile=$IS_MOBILE hasTouch=$HAS_TOUCH"
+  SSC_ARGS+=(--device "$DEVICE")
 fi
 
 SSC_ARGS+=(--out-dir "$OUT_DIR" --viewport-size "$VIEWPORT")
