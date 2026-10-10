@@ -54,7 +54,7 @@ err_console = Console(stderr=True)
 
 # MCP server port. 3000 is Playwright MCP's default but clashes with Grafana; override via MCP_PORT.
 DEFAULT_MCP_PORT = int(os.getenv("MCP_PORT", "3000"))
-DEFAULT_MCP_URL = os.getenv("MCP_SERVER_URL", f"http://localhost:{DEFAULT_MCP_PORT}/sse")
+DEFAULT_MCP_URL = os.getenv("MCP_SERVER_URL", f"http://127.0.0.1:{DEFAULT_MCP_PORT}/sse")
 
 # Default desktop Chrome UA; prevents headless-detection blocks on many sites.
 DEFAULT_USER_AGENT = (
@@ -71,6 +71,8 @@ DEFAULT_WORKSPACE_DIR = Path(os.getenv("WORKSPACE_DIR", "./workspace"))
 
 CONNECT_RETRIES = 5
 CONNECT_RETRY_DELAY_S = 2.0
+
+DOCKER_IMAGE = "ghcr.io/rondomondo/screenshot"
 
 
 # Embedded JS Engine: Imports @duckduckgo/autoconsent, initializes rules runner, and runs fallback DOM cleaner
@@ -191,6 +193,22 @@ AUTOCONSENT_AND_POPUP_DISMISSER_JS = """async (page, options) => {
 
 # Connection Lifecycle Management
 
+def print_mcp_start_hint(mcp_url: str) -> None:
+    """Print startup hints when the MCP server is unreachable on localhost."""
+    from urllib.parse import urlparse
+
+    port = urlparse(mcp_url).port or DEFAULT_MCP_PORT
+    err_console.print(
+        f"[yellow]Hint:[/yellow] The Playwright MCP server does not appear to be running. "
+        f"Start it directly with:\n"
+        f"  node <playwright-core/cli.js> mcp --headless --isolated --port {port} "
+        f"--browser chromium --host 127.0.0.1 --allowed-hosts '*' --allow-unrestricted-file-access\n\n"
+        f"Or run it via the Docker image (which bundles Node and Playwright):\n"
+        f"  docker run --rm -p {port}:{port} {DOCKER_IMAGE} mcp --headless --isolated --port {port} "
+        f"--browser chromium --host 0.0.0.0 --allowed-hosts '*' --allow-unrestricted-file-access"
+    )
+
+
 async def open_session(
     mcp_url: str,
     retries: int = CONNECT_RETRIES,
@@ -216,14 +234,7 @@ async def open_session(
     
     err_console.print(f"[bold red]Error:[/bold red] Failed to connect to MCP server at {mcp_url}")
     if "localhost" in mcp_url or "127.0.0.1" in mcp_url:
-        from urllib.parse import urlparse
-        port = urlparse(mcp_url).port or DEFAULT_MCP_PORT
-        err_console.print(
-            f"[yellow]Hint:[/yellow] The Playwright MCP server does not appear to be running. "
-            f"Start it with:\n"
-            f"  node <playwright-core/cli.js> mcp --headless --isolated --port {port} "
-            f"--browser chromium --host 127.0.0.1 --allowed-hosts '*' --allow-unrestricted-file-access"
-        )
+        print_mcp_start_hint(mcp_url)
     raise McpConnectionError() from last_exc
 
 

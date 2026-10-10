@@ -25,7 +25,7 @@ log()  { printf "${CYAN}[screenshot:$(hostname)]${RESET} %s\n" "$*" >&2; }
 ok()   { printf "${GREEN}[screenshot:$(hostname)]${RESET} %s\n" "$*" >&2; }
 fail() { printf "${RED}[screenshot:$(hostname)]${RESET} %s\n" "$*" >&2; exit 1; }
 
-usage() {
+print_help() {
   cat >&2 <<EOF
 Usage: screenshot <command> [options] <target>
 
@@ -34,6 +34,8 @@ Commands:
   pdf          Save page as PDF
   install      Emit an installer script (pipe to sh)
   uninstall    Emit an uninstaller script (pipe to sh)
+  mcp          Start the Playwright MCP server (passes all args to node playwright-core/cli.js mcp)
+  help         Show this help message
 
 Target:
   A URL (https://...) or a local HTML file path (relative to /html inside the container)
@@ -51,12 +53,21 @@ Options:
   --ignore-https-errors        Ignore TLS errors (default: on)
   --paper-format <fmt>         Paper format for PDF (default: A4)
   --headers-footers            Include browser-generated header and footer in PDF (default: off)
-  --wait-for <text>        Wait for text to appear before capture (MCP mode only)
-  --storage-state <path>   Path to Playwright storageState JSON (MCP mode only)
-  --custom-selector <sel>  CSS selector for popup dismissal (MCP mode only, repeatable)
+  --wait-for <text>            Wait for text to appear before capture (MCP mode only)
+  --storage-state <path>       Path to Playwright storageState JSON (MCP mode only)
+  --custom-selector <sel>      CSS selector for popup dismissal (MCP mode only, repeatable)
   Any other --flag value pairs are passed through to the MCP client or playwright.
 
+MCP server (standalone):
+  docker run --rm -p 3000:3000 ghcr.io/rondomondo/screenshot mcp \\
+    --headless --isolated --port 3000 --browser chromium \\
+    --host 0.0.0.0 --allowed-hosts '*' --allow-unrestricted-file-access
+
 EOF
+}
+
+usage() {
+  print_help
   exit 1
 }
 
@@ -89,7 +100,7 @@ mcp_start() {
   local mcp_config_file="/tmp/mcp-config.json"
   if [[ -n "$USER_AGENT" ]]; then
     printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s},"userAgent":%s,"isMobile":%s,"hasTouch":%s}}}' \
-      "$DEVICE_SCALE_FACTOR" "$vw" "$vh" "$(printf '%s' "$USER_AGENT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
+      "$DEVICE_SCALE_FACTOR" "$vw" "$vh" "$(printf '%s' "$USER_AGENT" | uv run python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
       "${IS_MOBILE:-false}" "${HAS_TOUCH:-false}" \
       > "$mcp_config_file"
   else
@@ -146,8 +157,10 @@ mcp_stop() {
 COMMAND="$1"; shift
 
 case "$COMMAND" in
-  install)   exec /install.sh "$@" ;;
-  uninstall) exec /uninstall.sh "$@" ;;
+  install)      exec /install.sh "$@" ;;
+  uninstall)    exec /uninstall.sh "$@" ;;
+  mcp)          exec node "$PW_MCP_CLI" mcp "$@" ;;
+  help|--help|-h) print_help; exit 0 ;;
 esac
 
 [[ "$COMMAND" != "screenshot" && "$COMMAND" != "pdf" && "$COMMAND" != "element" ]] && {

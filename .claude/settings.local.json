@@ -17,7 +17,12 @@
       "Read(//private/tmp/**)",
       "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
       "Bash(/opt/homebrew/bin/pdftoppm -r 150 -png /Users/davek/Code/screenshot/pdfs/jax-ml-github-io-scaling-book-index.pdf /tmp/jax_pages)",
-      "Read(//opt/**)"
+      "Read(//opt/**)",
+      "Bash(lsof -iTCP:3000 -sTCP:LISTEN)",
+      "Bash(curl -sv http://127.0.0.1:3000/sse)",
+      "Bash(curl -sv -H \"Accept: text/event-stream\" http://127.0.0.1:3000/sse)",
+      "Bash(curl -sv http://127.0.0.1:3000/)",
+      "Bash(curl -sv http://127.0.0.1:3000/mcp)"
     ]
   }
 }
