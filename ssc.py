@@ -670,6 +670,8 @@ async def capture_pdf(
     display_header_footer: bool = False,
     user_agent: str = DEFAULT_USER_AGENT,
     device: str | None = None,
+    unclip: bool = False,
+    hide_selectors: list[str] | None = None,
 ) -> Path:
     """Render page to PDF with screen colors, DOM settlement, and popup removal."""
     if device:
@@ -691,6 +693,8 @@ async def capture_pdf(
     logger.info(f"  dismiss_popups    : {dismiss_popups}")
     logger.info(f"  custom_selectors  : {custom_selectors or []}")
     logger.info(f"  storage_state     : {storage_state_path or '(none)'}")
+    logger.info(f"  unclip            : {unclip}")
+    logger.info(f"  hide_selectors    : {hide_selectors or []}")
     logger.info("------------------")
 
     url = resolve_url(url)
@@ -709,6 +713,26 @@ async def capture_pdf(
         viewport_height=viewport_height,
     )
 
+    if hide_selectors:
+        hide_code = f"""async (page) => {{
+            return await page.evaluate((sels) => {{
+                let n = 0;
+                for (const sel of sels) {{
+                    try {{
+                        document.querySelectorAll(sel).forEach((el) => {{
+                            el.style.setProperty('display', 'none', 'important');
+                            n++;
+                        }});
+                    }} catch (e) {{}}
+                }}
+                return n;
+            }}, {json.dumps(hide_selectors)});
+        }}"""
+        hide_result = await call_tool(session, "browser_run_code_unsafe", code=hide_code)
+        for block in hide_result:
+            if isinstance(block, TextContent):
+                logger.info(f"Hid {block.text.strip()} element(s) matching: {', '.join(hide_selectors)}")
+
     flatten_fixed_js = """async (page) => {
         await page.evaluate(() => {
             document.querySelectorAll('*').forEach((el) => {
@@ -723,6 +747,56 @@ async def capture_pdf(
     }"""
     await call_tool(session, "browser_run_code_unsafe", code=flatten_fixed_js)
     logger.info("Flattened fixed/sticky elements before PDF render")
+
+    if unclip:
+        # Last resort for app-shell layouts (html/body {height:100vh}, inner scroller {overflow:auto}).
+        # page.pdf() only paginates in-flow content, so anything clipped by a fixed-height scroll
+        # container is lost and you get one truncated page. Media is forced to 'screen' in
+        # ensure_page_ready, so an @media print stylesheet would NOT apply -- hence inline styles.
+        unclip_js = """async (page) => {
+            return await page.evaluate(() => {
+                const MIN_RATIO = 0.5;  // only unclip scrollers >= 50% of the tallest one (spares sidebars, code blocks)
+                const cands = [];
+                for (const el of document.querySelectorAll('*')) {
+                    const cs = getComputedStyle(el);
+                    if (cs.display === 'none') continue;
+                    if (cs.contentVisibility === 'auto') el.style.setProperty('content-visibility', 'visible', 'important');
+                    if (/(paint|layout|strict|content)/.test(cs.contain)) el.style.setProperty('contain', 'none', 'important');
+                    if (!['auto', 'scroll', 'hidden', 'clip'].includes(cs.overflowY)) continue;
+                    if (cs.webkitLineClamp && cs.webkitLineClamp !== 'none') continue;  // leave line-clamp alone
+                    if (el.scrollHeight <= el.clientHeight + 4) continue;                // not actually clipping
+                    cands.push(el);
+                }
+                const tallest = Math.max(0, ...cands.map((e) => e.scrollHeight));
+                const targets = cands.filter((e) => e.scrollHeight >= tallest * MIN_RATIO);
+
+                const freed = new Set();
+                const free = (n) => {
+                    if (freed.has(n)) return;
+                    freed.add(n);
+                    const pos = getComputedStyle(n).position;
+                    n.style.setProperty('height', 'auto', 'important');
+                    n.style.setProperty('max-height', 'none', 'important');
+                    n.style.setProperty('min-height', '0', 'important');
+                    n.style.setProperty('overflow', 'visible', 'important');
+                    // abs-pos shells with top:0;bottom:0 stay viewport-high even at height:auto
+                    if (pos === 'absolute') n.style.setProperty('position', 'static', 'important');
+                };
+                for (const t of targets) {
+                    for (let n = t; n; n = n.parentElement) free(n);   // scroller + every ancestor up to <html>
+                }
+                window.scrollTo(0, 0);
+                return JSON.stringify({
+                    candidates: cands.length,
+                    unclipped: targets.map((t) => `${t.tagName.toLowerCase()}${t.id ? '#' + t.id : ''}${t.className && typeof t.className === 'string' ? '.' + t.className.trim().split(/\\s+/)[0] : ''} (${t.scrollHeight}px)`),
+                    chain_nodes: freed.size,
+                });
+            });
+        }"""
+        unclip_result = await call_tool(session, "browser_run_code_unsafe", code=unclip_js)
+        for block in unclip_result:
+            if isinstance(block, TextContent):
+                logger.info(f"Unclip result: {block.text}")
 
     filename = sanitize_filename(url, extension="pdf")
     container_file_path = str(CONTAINER_PDF_DIR / filename)
@@ -880,6 +954,8 @@ def cmd_pdf(
     headers_footers: Annotated[bool, typer.Option("--headers-footers/--no-headers-footers", help="Include browser-generated page header and footer.")] = False,
     user_agent: Annotated[str, typer.Option("--user-agent", help="Browser user-agent string.")] = DEFAULT_USER_AGENT,
     device: Annotated[str | None, typer.Option("--device", help="Playwright device name to emulate (overrides viewport and UA). Use 'devices' command to list.")] = None,
+    hide: Annotated[list[str] | None, typer.Option("--hide", "-H", help="CSS selectors for elements to hide before PDF render, e.g. sidebars/TOCs (repeatable).")] = None,
+    unclip: Annotated[bool, typer.Option("--unclip/--no-unclip", help="Last resort: free fixed-height scroll containers so long app-shell pages paginate instead of printing as one clipped page.")] = False,
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Render and capture target URL as a PDF document."""
@@ -902,6 +978,8 @@ def cmd_pdf(
                 display_header_footer=headers_footers,
                 user_agent=user_agent,
                 device=device,
+                unclip=unclip,
+                hide_selectors=hide,
             )
             console.print(f"[bold green]Successfully rendered PDF:[/bold green] {str(out_file).lstrip('/')}", overflow="ignore", no_wrap=True)
 
