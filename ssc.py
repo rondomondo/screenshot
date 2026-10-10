@@ -438,23 +438,6 @@ async def ensure_page_ready(
 
 # Core Action Handlers
 
-async def set_viewport(session: ClientSession, width: int, height: int) -> None:
-    """Resize the browser viewport."""
-    viewport_code = f"""async (page) => {{
-        await page.setViewportSize({{ width: {width}, height: {height} }});
-    }}"""
-    await call_tool(session, "browser_run_code_unsafe", code=viewport_code)
-    logger.info(f"Viewport set to {width}x{height}")
-
-
-async def set_user_agent(session: ClientSession, user_agent: str) -> None:
-    """Override the page-level User-Agent header."""
-    ua_code = f"""async (page) => {{
-        await page.setExtraHTTPHeaders({{ 'User-Agent': {json.dumps(user_agent)} }});
-    }}"""
-    await call_tool(session, "browser_run_code_unsafe", code=ua_code)
-    logger.debug(f"User-agent set to: {user_agent}")
-
 
 def resolve_device(device_name: str) -> dict[str, Any]:
     """Look up a Playwright device descriptor by name from the baked-in device table.
@@ -518,9 +501,6 @@ async def capture_screenshot(
     url = resolve_url(url)
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
-
-    await set_viewport(session, viewport_width, viewport_height)
-    await set_user_agent(session, user_agent)
 
     await ensure_page_ready(
         session,
@@ -620,9 +600,6 @@ async def capture_element(
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
 
-    await set_viewport(session, viewport_width, viewport_height)
-    await set_user_agent(session, user_agent)
-
     await ensure_page_ready(
         session,
         url=url,
@@ -714,9 +691,6 @@ async def capture_pdf(
     url = resolve_url(url)
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
-
-    await set_viewport(session, viewport_width, viewport_height)
-    await set_user_agent(session, user_agent)
 
     await ensure_page_ready(
         session,
@@ -952,6 +926,26 @@ def cmd_list_devices() -> None:
             d.get("userAgent", ""),
         )
     console.print(table)
+
+
+@app.command("device-info")
+def cmd_device_info(
+    device: Annotated[str, typer.Argument(help="Playwright device name (e.g. 'iPhone 16 Pro').")],
+) -> None:
+    """Print shell-sourceable variables for a device descriptor.
+
+    Used by entrypoint.sh to resolve device settings before starting the MCP server,
+    so context options are correct from the very first navigation.
+    """
+    try:
+        descriptor = resolve_device(device)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    vp = descriptor["viewport"]
+    print(f"VIEWPORT={vp['width']}x{vp['height']}")
+    print(f"DEVICE_SCALE_FACTOR={descriptor['deviceScaleFactor']}")
+    print(f"USER_AGENT={descriptor['userAgent']}")
 
 
 @app.command("tools")

@@ -84,13 +84,19 @@ derive_stem() {
 mcp_start() {
   log "Starting embedded MCP server on port ${MCP_PORT}..."
 
-  # Write a minimal playwright MCP config so we can set deviceScaleFactor and viewport.
-  # The VIEWPORT and DEVICE_SCALE_FACTOR variables are set before mcp_start is called.
+  # Write a minimal playwright MCP config so context options are baked in before any navigation.
+  # VIEWPORT, DEVICE_SCALE_FACTOR, and USER_AGENT are fully resolved before mcp_start is called.
   local vw vh
   IFS='x' read -r vw vh <<< "$VIEWPORT"
   local mcp_config_file="/tmp/mcp-config.json"
-  printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s}}}}' \
-    "$DEVICE_SCALE_FACTOR" "$vw" "$vh" > "$mcp_config_file"
+  if [[ -n "$USER_AGENT" ]]; then
+    printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s},"userAgent":%s}}}' \
+      "$DEVICE_SCALE_FACTOR" "$vw" "$vh" "$(printf '%s' "$USER_AGENT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
+      > "$mcp_config_file"
+  else
+    printf '{"browser":{"contextOptions":{"deviceScaleFactor":%s,"viewport":{"width":%s,"height":%s}}}}' \
+      "$DEVICE_SCALE_FACTOR" "$vw" "$vh" > "$mcp_config_file"
+  fi
 
   local exec_path_arg=()
   if [[ -n "${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}" ]]; then
@@ -251,6 +257,23 @@ log "output:   $OUT_FILE"
 PAUSE_MS=$(( WAIT_TIMEOUT_MS / 6 ))
 [[ "$PAUSE_MS" -lt 200 ]] && PAUSE_MS=200
 
+# Resolve device descriptor before starting MCP so context options are baked in correctly.
+# --device overrides VIEWPORT, DEVICE_SCALE_FACTOR, and USER_AGENT.
+if [[ -n "$DEVICE" ]]; then
+  log "Resolving device: $DEVICE"
+  device_info=$(uv run --script "$SSC" device-info "$DEVICE") || fail "Unknown device: $DEVICE"
+  while IFS= read -r line; do
+    key="${line%%=*}"
+    value="${line#*=}"
+    case "$key" in
+      VIEWPORT)            VIEWPORT="$value" ;;
+      DEVICE_SCALE_FACTOR) DEVICE_SCALE_FACTOR="$value" ;;
+      USER_AGENT)          USER_AGENT="$value" ;;
+    esac
+  done <<< "$device_info"
+  log "Device resolved: viewport=$VIEWPORT scale=$DEVICE_SCALE_FACTOR"
+fi
+
 SSC_ARGS+=(--out-dir "$OUT_DIR" --viewport-size "$VIEWPORT")
 if [[ "$COMMAND" == "screenshot" || "$COMMAND" == "pdf" ]]; then
   SSC_ARGS+=(--pause "$PAUSE_MS")
@@ -261,7 +284,6 @@ fi
 [[ "$COMMAND" == "pdf" && "$DISPLAY_HEADER_FOOTER" == "true" ]] && SSC_ARGS+=(--headers-footers)
 [[ "$COMMAND" == "element" ]] && SSC_ARGS+=(--device-scale-factor "$DEVICE_SCALE_FACTOR")
 [[ -n "$USER_AGENT" ]] && SSC_ARGS+=(--user-agent "$USER_AGENT")
-[[ -n "$DEVICE" ]] && SSC_ARGS+=(--device "$DEVICE")
 
 trap mcp_stop EXIT
 mcp_start
