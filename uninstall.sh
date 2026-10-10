@@ -7,6 +7,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RESET='\033[0m'
 
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-ghcr.io}"
+IMAGE_REPO="${IMAGE_REPO:-rondomondo/screenshot}"
+IMAGE_TAG="${IMAGE_TAG:-latest}"
+IMAGE="${IMAGE_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}"
+
 # Streaming uninstall: docker run ... uninstall | sh
 # Emits a self-contained sh script that removes url2pdf, url2image, and url2capture from the host.
 if [[ ! -t 1 ]]; then
@@ -27,7 +32,7 @@ info() { printf "${CYAN}info${RESET}  %s\n" "$1"; }
 try_remove_bin() {
     local name="$1"
     local removed=0
-    for dir in /usr/local/bin "$HOME/bin"; do
+    for dir in /usr/local/bin "$HOME/.local/bin"; do
         local target="$dir/$name"
         [ -f "$target" ] || [ -L "$target" ] || continue
         if rm -f "$target" 2>/dev/null; then
@@ -40,7 +45,7 @@ try_remove_bin() {
             warn "could not remove $target (permission denied)"
         fi
     done
-    [ "$removed" -eq 0 ] && info "$name not found in /usr/local/bin or ~/bin -- nothing to remove" || true
+    [ "$removed" -eq 0 ] && info "$name not found in /usr/local/bin or ~/.local/bin -- nothing to remove" || true
 }
 
 HEADER
@@ -66,10 +71,10 @@ printf "${BOLD}${CYAN}Uninstall screenshot tools${RESET}\n"
 printf "\n"
 printf "Run the following to remove url2pdf and url2image:\n"
 printf "\n"
-printf "  ${BOLD}docker run --rm ghcr.io/rondomondo/screenshot:latest uninstall | sh${RESET}\n"
+printf "  ${BOLD}docker run --rm %s uninstall | sh${RESET}\n" "$IMAGE"
 printf "\n"
 printf "This removes:\n"
-printf "  ${BOLD}url2pdf${RESET}     from /usr/local/bin or ~/bin\n"
-printf "  ${BOLD}url2image${RESET}   from /usr/local/bin or ~/bin\n"
-printf "  ${BOLD}url2capture${RESET} from /usr/local/bin or ~/bin\n"
+printf "  ${BOLD}url2pdf${RESET}     from /usr/local/bin or ~/.local/bin\n"
+printf "  ${BOLD}url2image${RESET}   from /usr/local/bin or ~/.local/bin\n"
+printf "  ${BOLD}url2capture${RESET} from /usr/local/bin or ~/.local/bin\n"
 printf "\n"

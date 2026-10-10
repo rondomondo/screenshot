@@ -6,8 +6,10 @@ CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 RESET='\033[0m'
 
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-ghcr.io}"
+IMAGE_REPO="${IMAGE_REPO:-rondomondo/screenshot}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
-IMAGE="ghcr.io/rondomondo/screenshot:${IMAGE_TAG}"
+IMAGE="${IMAGE_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}"
 
 # Dispatch based on the name this script was invoked as.
 INVOKED_AS="$(basename "$0")"
@@ -52,7 +54,9 @@ usage() {
     printf "  -h, --help              Show this help\n" >&2
     printf "\nOutput is written to ./pdfs/ or ./screenshots/ in the current directory.\n" >&2
     printf "\n${BOLD}Environment:${RESET}\n" >&2
-    printf "  IMAGE_TAG               Docker image tag to use (default: latest)\n" >&2
+    printf "  IMAGE_TAG               Docker image tag (default: latest)\n" >&2
+    printf "  IMAGE_REGISTRY          Registry host (default: ghcr.io)\n" >&2
+    printf "  IMAGE_REPO              Image repository (default: rondomondo/screenshot)\n" >&2
     printf "                          e.g. IMAGE_TAG=0.0.21 url2pdf https://example.com\n" >&2
     exit 1
 }

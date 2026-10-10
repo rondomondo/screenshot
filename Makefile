@@ -31,7 +31,9 @@ SESSIONS_DIR    := $(WORKSPACE_DIR)/sessions
 SESSION         ?= default
 SESSION_FILE    := $(SESSIONS_DIR)/$(SESSION).json
 
-#EXAMPLE_URL     ?= https://en.wikipedia.org/wiki/Special:Random
+# f [ -f '/Users/davek/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/davek/google-cloud-sdk/completion.zsh.inc'; fi
+
+# Alternative: https://en.wikipedia.org/wiki/Special:Random
 EXAMPLE_URL     ?= https://jax-ml.github.io/scaling-book/index
 
 # -- Help -----------------------------------------------------
@@ -48,21 +50,6 @@ help: ## Show this help message
 build: ## Build single-arch image for local testing (loads into Docker daemon). NO_CACHE=1 to bust cache.
 	docker build $(_CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -t $(REMOTE):$(VERSION) -t $(REMOTE):latest .
 	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest (local arch only)\n"
-
-.PHONY: build-slim
-build-slim: ## Build slim variant (system Chromium, no SRE tools). NO_CACHE=1 to bust cache.
-	docker build $(_CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -f Dockerfile.slim -t $(REMOTE):$(VERSION)-slim -t $(REMOTE):slim .
-	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION)-slim and $(REMOTE):slim\n"
-
-.PHONY: build-pw
-build-pw: ## Build Playwright-official-base variant. NO_CACHE=1 to bust cache.
-	docker build $(_CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -f Dockerfile.pw -t $(REMOTE):$(VERSION)-pw -t $(REMOTE):pw .
-	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION)-pw and $(REMOTE):pw\n"
-
-.PHONY: build-sre
-build-sre: ## Build standalone SRE tools image (curl, dig, ss, strace, htop, jq, etc). NO_CACHE=1 to bust cache.
-	docker build $(_CACHE_FLAG) -f Dockerfile.sre -t $(REGISTRY)/rondomondo/sre-tools:latest .
-	@printf "$(GREEN)Built$(RESET) $(REGISTRY)/rondomondo/sre-tools:latest\n"
 
 .PHONY: builder-init
 builder-init: ## Create/reuse the multi-platform buildx builder
@@ -117,6 +104,26 @@ install: ## Install url2pdf and url2image; tries /usr/local/bin, falls back to ~
 	  mkdir -p ~/.local/bin; \
 	  install -m 755 url2capture.sh ~/.local/bin/url2capture; \
 	  IDIR=~/.local/bin; \
+	  case ":$$PATH:" in \
+	    *":$$IDIR:"*) ;; \
+	    *) RCFILE=""; \
+	       case "$${SHELL##*/}" in \
+	         zsh)  RCFILE="$$HOME/.zshrc" ;; \
+	         bash) RCFILE="$$HOME/.bashrc" ;; \
+	         fish) RCFILE="$$HOME/.config/fish/config.fish" ;; \
+	       esac; \
+	       if [ -n "$$RCFILE" ]; then \
+	         if ! grep -qF "$$IDIR" "$$RCFILE" 2>/dev/null; then \
+	           printf '\nexport PATH="%s:$$PATH"\n' "$$IDIR" >> "$$RCFILE"; \
+	           printf "$(GREEN)Added$(RESET)     $$IDIR to PATH in $$RCFILE\n"; \
+	           printf "$(YELLOW)Restart$(RESET)   your shell or run: source $$RCFILE\n"; \
+	         else \
+	           printf "$(CYAN)Skipped$(RESET)   $$IDIR already referenced in $$RCFILE\n"; \
+	         fi; \
+	       else \
+	         printf "$(YELLOW)Warning$(RESET)   $$IDIR is not on PATH -- add: export PATH=\"$$IDIR:\$$PATH\"\n"; \
+	       fi ;; \
+	  esac; \
 	fi; \
 	printf "$(GREEN)Installed$(RESET) $$IDIR/url2capture\n"; \
 	ln -sf $$IDIR/url2capture $$IDIR/url2pdf; \
@@ -201,8 +208,8 @@ docker-shell: ## Open an interactive bash shell in the image
 
 ##@ Info
 
-.PHONY: examples
-examples: ## Print cut-and-paste usage examples
+.PHONY: example
+example: ## Print cut-and-paste usage example
 	@printf "\n$(BOLD)Install onto your host$(RESET)\n"
 	@printf "  docker run --rm $(REMOTE):latest install | sh\n"
 	@printf "  docker run --rm $(REMOTE):latest uninstall | sh\n"
