@@ -83,6 +83,7 @@ push: builder-init ## Build multi-platform image and push to ghcr.io (amd64 + ar
 	  --platform $(PLATFORMS) \
 	  --tag $(REMOTE):$(VERSION) \
 	  --tag $(REMOTE):latest \
+	  --tag $(REMOTE):find4 \
 	  --push \
 	  .
 	@printf "$(GREEN)Pushed$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest ($(PLATFORMS))\n"
@@ -218,25 +219,13 @@ docker-shell: ## Open an interactive bash shell in the image
 
 ##@ Devices
 
-.PHONY: devices-update
-devices-update: ## Regenerate devices.py from playwright-core inside the image (run after image upgrade)
-	@printf "$(CYAN)Extracting device descriptors from $(REMOTE):latest...$(RESET)\n"
-	@docker run --rm --entrypoint="" $(REMOTE):latest \
-	  node -e " \
-	    const {devices}=require('playwright-core'); \
-	    const KEEP=new Set(['Desktop Chrome','Desktop Chrome HiDPI','Desktop Edge','Desktop Edge HiDPI','Desktop Firefox','Desktop Firefox HiDPI','Desktop Safari','Galaxy A55','Galaxy A55 landscape','Galaxy S24','Galaxy S24 landscape','Galaxy Tab S9','Galaxy Tab S9 landscape','Galaxy Z Flip 7','Galaxy Z Flip 7 landscape','Galaxy Z Fold 7','Galaxy Z Fold 7 landscape','Pixel 7','Pixel 7 landscape','Pixel 7 Pro','Pixel 7 Pro landscape','Pixel 8','Pixel 8 landscape','Pixel 8 Pro','Pixel 8 Pro landscape','Pixel 9','Pixel 9 landscape','Pixel 9 Pro','Pixel 9 Pro landscape','Pixel 9 Pro XL','Pixel 9 Pro XL landscape','Pixel 10','Pixel 10 landscape','Pixel 10 Pro','Pixel 10 Pro landscape','Pixel 10 Pro XL','Pixel 10 Pro XL landscape','iPad (gen 11)','iPad (gen 11) landscape','iPad Mini','iPad Mini landscape','iPad Pro 11','iPad Pro 11 landscape','iPhone 15','iPhone 15 landscape','iPhone 15 Pro','iPhone 15 Pro landscape','iPhone 15 Pro Max','iPhone 15 Pro Max landscape','iPhone 16','iPhone 16 landscape','iPhone 16 Pro','iPhone 16 Pro landscape','iPhone 16 Pro Max','iPhone 16 Pro Max landscape','iPhone 17','iPhone 17 landscape','iPhone 17 Pro','iPhone 17 Pro landscape','iPhone 17 Pro Max','iPhone 17 Pro Max landscape','iPhone SE (3rd gen)','iPhone SE (3rd gen) landscape']); \
-	    const out=Object.entries(devices).filter(([n])=>KEEP.has(n)).sort(([a],[b])=>a.localeCompare(b)); \
-	    console.log(JSON.stringify(out)); \
-	  " \
-	  | python3 -c " \
-import sys, json; \
-data=json.load(sys.stdin); \
-lines=['\"\"\"Playwright device descriptors baked in at image build time.\n\nRegenerate with: make devices-update\n\"\"\"','from typing import Any','','','PLAYWRIGHT_DEVICES: dict[str, dict[str, Any]] = {']; \
-[lines.extend([f'    {json.dumps(n)}: {{',f'        \"userAgent\": {json.dumps(d[\"userAgent\"])},',f'        \"viewport\": {{\"width\": {d[\"viewport\"][\"width\"]}, \"height\": {d[\"viewport\"][\"height\"]}}},',f'        \"deviceScaleFactor\": {d[\"deviceScaleFactor\"]},',f'        \"isMobile\": {d[\"isMobile\"]},',f'        \"hasTouch\": {d[\"hasTouch\"]},','    },']) for n,d in data]; \
-lines.append('}'); \
-print('\n'.join(lines)) \
-	  " > devices.py
-	@count=$$(grep -c '"userAgent"' devices.py); printf "$(GREEN)Written$(RESET) devices.py ($$count devices)\n"
+DEVICES_URL := https://rondomondo.github.io/pw-device-list/devices.py
+
+.PHONY: devices-fetch
+devices-fetch: ## Fetch devices.py from the public endpoint (rondomondo.github.io/pw-device-list)
+	@printf "$(CYAN)Fetching devices.py from $(DEVICES_URL)...$(RESET)\n"
+	@curl -fsSL "$(DEVICES_URL)" -o devices.py
+	@count=$$(grep -c '"userAgent"' devices.py); printf "$(GREEN)Fetched$(RESET) devices.py ($$count devices)\n"
 
 ##@ Info
 
