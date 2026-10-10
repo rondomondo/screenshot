@@ -42,6 +42,7 @@ COPY --chown=root:root entrypoint.sh /entrypoint.sh
 COPY --chown=root:root install.sh /install.sh
 COPY --chown=root:root uninstall.sh /uninstall.sh
 COPY --chown=root:root ssc.py /app/ssc.py
+COPY --chown=root:root devices.py /app/devices.py
 COPY --chown=root:root url2capture.sh /usr/local/lib/screenshot/url2capture.sh
 
 # Bake the image version into url2capture.sh so installed copies default to the correct tag.

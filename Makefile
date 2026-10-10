@@ -31,6 +31,11 @@ SESSIONS_DIR    := $(WORKSPACE_DIR)/sessions
 SESSION         ?= default
 SESSION_FILE    := $(SESSIONS_DIR)/$(SESSION).json
 
+# MCP server port. 3000 is Playwright MCP's default but conflicts with Grafana; override as needed.
+MCP_PORT        ?= 3000
+MCP_SSE_URL     := http://localhost:$(MCP_PORT)/sse
+MCP_HTTP_URL    := http://localhost:$(MCP_PORT)/mcp
+
 # f [ -f '/Users/davek/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/davek/google-cloud-sdk/completion.zsh.inc'; fi
 
 # Alternative: https://en.wikipedia.org/wiki/Special:Random
@@ -97,8 +102,10 @@ retag: ## Re-tag an existing remote image without pulling: make retag FROM=lates
 ##@ Install
 
 .PHONY: install
-install: ## Install url2pdf and url2image; tries /usr/local/bin, falls back to ~/.local/bin
+install: ## Install url2pdf and url2image; tries /usr/local/bin (direct then sudo), falls back to ~/.local/bin
 	@if install -m 755 url2capture.sh /usr/local/bin/url2capture 2>/dev/null; then \
+	  IDIR=/usr/local/bin; \
+	elif sudo install -m 755 url2capture.sh /usr/local/bin/url2capture 2>/dev/null; then \
 	  IDIR=/usr/local/bin; \
 	else \
 	  mkdir -p ~/.local/bin; \
@@ -130,6 +137,9 @@ install: ## Install url2pdf and url2image; tries /usr/local/bin, falls back to ~
 	printf "$(GREEN)Linked$(RESET)     $$IDIR/url2pdf -> $$IDIR/url2capture\n"; \
 	ln -sf $$IDIR/url2capture $$IDIR/url2image; \
 	printf "$(GREEN)Linked$(RESET)     $$IDIR/url2image -> $$IDIR/url2capture\n"
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/commit-msg
+	@printf "$(GREEN)Wired$(RESET)     git hooks -> .githooks/\n"
 
 .PHONY: uninstall
 uninstall: ## Remove url2pdf, url2image, and url2capture from /usr/local/bin and ~/.local/bin
@@ -155,12 +165,12 @@ define RUN_MCP_CLIENT
 	@WAS_RUNNING=1; \
 	if ! curl -fs --max-time 3 -X POST -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
 	   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"healthcheck","version":"1"}}}' \
-	   http://localhost:3000/mcp >/dev/null 2>&1; then \
+	   $(MCP_HTTP_URL) >/dev/null 2>&1; then \
 		WAS_RUNNING=0; \
 		printf "$(CYAN)MCP server not detected. Spinning up background container...$(RESET)\n"; \
-		$(MAKE) mcp-up SESSION=$(SESSION) >/dev/null; \
+		$(MAKE) mcp-up SESSION=$(SESSION) MCP_PORT=$(MCP_PORT) >/dev/null; \
 	fi; \
-	uv run ssc.py $(1) --url http://localhost:3000/sse $(TARGET) $(ARGS); \
+	uv run ssc.py $(1) --url $(MCP_SSE_URL) $(TARGET) $(ARGS); \
 	EXIT_CODE=$$?; \
 	if [ "$$WAS_RUNNING" -eq 0 ]; then \
 		printf "$(CYAN)Cleaning up temporary MCP container...$(RESET)\n"; \
@@ -187,7 +197,7 @@ mcp-up: ## Start the MCP server in the background (SESSION=default selects the b
 	  printf "$(CYAN)Created$(RESET) empty session: $(SESSION_FILE)\n"; \
 	fi
 	SESSION=$(SESSION) docker compose up -d mcp
-	@printf "$(GREEN)Started$(RESET) MCP server on port 3000 (session: $(SESSION))\n"
+	@printf "$(GREEN)Started$(RESET) MCP server on port $(MCP_PORT) (session: $(SESSION))\n"
 
 .PHONY: mcp-down
 mcp-down: ## Stop and remove the MCP server container
@@ -205,6 +215,28 @@ mcp-shell: ## Open a shell in the MCP container (useful for inspecting /workspac
 .PHONY: docker-shell
 docker-shell: ## Open an interactive bash shell in the image
 	docker run --rm -it --entrypoint bash $(REMOTE):$(VERSION)
+
+##@ Devices
+
+.PHONY: devices-update
+devices-update: ## Regenerate devices.py from playwright-core inside the image (run after image upgrade)
+	@printf "$(CYAN)Extracting device descriptors from $(REMOTE):latest...$(RESET)\n"
+	@docker run --rm --entrypoint="" $(REMOTE):latest \
+	  node -e " \
+	    const {devices}=require('playwright-core'); \
+	    const KEEP=new Set(['Desktop Chrome','Desktop Chrome HiDPI','Desktop Edge','Desktop Edge HiDPI','Desktop Firefox','Desktop Firefox HiDPI','Desktop Safari','Galaxy A55','Galaxy A55 landscape','Galaxy S24','Galaxy S24 landscape','Galaxy Tab S9','Galaxy Tab S9 landscape','Galaxy Z Flip 7','Galaxy Z Flip 7 landscape','Galaxy Z Fold 7','Galaxy Z Fold 7 landscape','Pixel 7','Pixel 7 landscape','Pixel 7 Pro','Pixel 7 Pro landscape','Pixel 8','Pixel 8 landscape','Pixel 8 Pro','Pixel 8 Pro landscape','Pixel 9','Pixel 9 landscape','Pixel 9 Pro','Pixel 9 Pro landscape','Pixel 9 Pro XL','Pixel 9 Pro XL landscape','Pixel 10','Pixel 10 landscape','Pixel 10 Pro','Pixel 10 Pro landscape','Pixel 10 Pro XL','Pixel 10 Pro XL landscape','iPad (gen 11)','iPad (gen 11) landscape','iPad Mini','iPad Mini landscape','iPad Pro 11','iPad Pro 11 landscape','iPhone 15','iPhone 15 landscape','iPhone 15 Pro','iPhone 15 Pro landscape','iPhone 15 Pro Max','iPhone 15 Pro Max landscape','iPhone 16','iPhone 16 landscape','iPhone 16 Pro','iPhone 16 Pro landscape','iPhone 16 Pro Max','iPhone 16 Pro Max landscape','iPhone 17','iPhone 17 landscape','iPhone 17 Pro','iPhone 17 Pro landscape','iPhone 17 Pro Max','iPhone 17 Pro Max landscape','iPhone SE (3rd gen)','iPhone SE (3rd gen) landscape']); \
+	    const out=Object.entries(devices).filter(([n])=>KEEP.has(n)).sort(([a],[b])=>a.localeCompare(b)); \
+	    console.log(JSON.stringify(out)); \
+	  " \
+	  | python3 -c " \
+import sys, json; \
+data=json.load(sys.stdin); \
+lines=['\"\"\"Playwright device descriptors baked in at image build time.\n\nRegenerate with: make devices-update\n\"\"\"','from typing import Any','','','PLAYWRIGHT_DEVICES: dict[str, dict[str, Any]] = {']; \
+[lines.extend([f'    {json.dumps(n)}: {{',f'        \"userAgent\": {json.dumps(d[\"userAgent\"])},',f'        \"viewport\": {{\"width\": {d[\"viewport\"][\"width\"]}, \"height\": {d[\"viewport\"][\"height\"]}}},',f'        \"deviceScaleFactor\": {d[\"deviceScaleFactor\"]},',f'        \"isMobile\": {d[\"isMobile\"]},',f'        \"hasTouch\": {d[\"hasTouch\"]},','    },']) for n,d in data]; \
+lines.append('}'); \
+print('\n'.join(lines)) \
+	  " > devices.py
+	@count=$$(grep -c '"userAgent"' devices.py); printf "$(GREEN)Written$(RESET) devices.py ($$count devices)\n"
 
 ##@ Info
 
@@ -252,18 +284,18 @@ status: ## Show running containers, health, and MCP connection details
 	@echo ""
 	@if docker compose ps --status running 2>/dev/null | grep -q "mcp"; then \
 	  printf "$(BOLD)MCP server$(RESET)\n"; \
-	  printf "  HTTP/SSE endpoint : $(GREEN)http://localhost:3000$(RESET)\n"; \
+	  printf "  HTTP/SSE endpoint : $(GREEN)http://localhost:$(MCP_PORT)$(RESET)\n"; \
 	  printf "  Health check      : "; \
 	  if curl -fs --max-time 3 -X POST -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
 	     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"healthcheck","version":"1"}}}' \
-	     http://localhost:3000/mcp >/dev/null 2>&1; then \
+	     $(MCP_HTTP_URL) >/dev/null 2>&1; then \
 	    printf "$(GREEN)healthy$(RESET)\n"; \
 	  else \
 	    printf "$(RED)unreachable$(RESET)\n"; \
 	  fi; \
 	  printf "  Session file      : $(SESSION_FILE)\n"; \
-	  printf "  MCP endpoint      : http://localhost:3000/mcp\n"; \
-	  printf "  SSE endpoint      : http://localhost:3000/sse (legacy)\n"; \
+	  printf "  MCP endpoint      : $(MCP_HTTP_URL)\n"; \
+	  printf "  SSE endpoint      : $(MCP_SSE_URL)\n"; \
 	fi
 	@echo ""
 

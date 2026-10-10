@@ -1,0 +1,9 @@
+https://jax-ml.github.io/scaling-book/index
+https://blog.google/chromium/bringing-a-clearer-more-consistent-hdr-video-experience-to-chrome/
+https://en.wikipedia.org/wiki/Special:Random
+https://developers.openai.com/blog/automating-repetitive-work-at-openai-with-codex
+https://developers.openai.com/blog/skills-shell-tips
+https://www.linuxfoundation.org/
+https://www.anthropic.com/engineering/code-execution-with-mcp
+https://developers.openai.com/api/docs/guides/tools-skills
+https://www.investopedia.com/

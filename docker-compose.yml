@@ -9,7 +9,7 @@ services:
             - ./html:/html:ro
             - ./workspace:/workspace
 
-    # Long-lived MCP server - clients connect over HTTP/SSE on port 3000
+    # Long-lived MCP server - clients connect over HTTP/SSE on MCP_PORT (default 3000)
     mcp:
         image: ghcr.io/rondomondo/screenshot:${IMAGE_TAG:-latest}
         entrypoint:
@@ -21,7 +21,7 @@ services:
                 '--host',
                 '0.0.0.0',
                 '--port',
-                '3000',
+                '${MCP_PORT:-3000}',
                 '--browser',
                 'chromium',
                 '--isolated',
@@ -34,7 +34,7 @@ services:
                 '/usr/bin/chromium',
             ]
         ports:
-            - '3000:3000'
+            - '${MCP_PORT:-3000}:${MCP_PORT:-3000}'
         volumes:
             - ./screenshots:/screenshots
             - ./pdfs:/pdfs
@@ -42,12 +42,13 @@ services:
             - ./workspace:/workspace
         environment:
             - SESSION=${SESSION:-default}
+            - MCP_PORT=${MCP_PORT:-3000}
         restart: unless-stopped
         healthcheck:
             test:
                 [
                     'CMD-SHELL',
-                    'curl -fs --max-time 3 -X POST -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"healthcheck\",\"version\":\"1\"}}}" http://localhost:3000/mcp || exit 1',
+                    'curl -fs --max-time 3 -X POST -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"healthcheck\",\"version\":\"1\"}}}" http://localhost:${MCP_PORT:-3000}/mcp || exit 1',
                 ]
             interval: 10s
             timeout: 5s

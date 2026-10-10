@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import playwright; print\\(playwright.__version__\\)\")",
+      "Bash(uv run *)",
+      "Bash(docker build *)",
+      "Bash(docker run *)",
+      "Bash(grep -E \"\\\\.py$|setup\\\\.|pyproject\\\\.|requirements\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 *)",
+      "Bash(make build *)",
+      "Bash(sh)",
+      "Bash(url2pdf *)",
+      "Bash(brew list *)",
+      "Bash(brew install *)",
+      "Bash(pdftoppm -r 150 -png /Users/davek/Code/screenshot/pdfs/jax-ml-github-io-scaling-book-index.pdf /tmp/jax_pages)",
+      "Read(//private/tmp/**)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(/opt/homebrew/bin/pdftoppm -r 150 -png /Users/davek/Code/screenshot/pdfs/jax-ml-github-io-scaling-book-index.pdf /tmp/jax_pages)",
+      "Read(//opt/**)"
+    ]
+  }
+}

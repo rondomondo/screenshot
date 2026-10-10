@@ -30,6 +30,8 @@ from mcp.types import EmbeddedResource, ImageContent, TextContent
 from rich.console import Console
 from rich.table import Table
 
+from devices import PLAYWRIGHT_DEVICES
+
 # Setup structured logging
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -46,8 +48,17 @@ app = typer.Typer(
 console = Console()
 err_console = Console(stderr=True)
 
-# Path and URL defaults aligned with Makefile & docker-compose.yml
-DEFAULT_MCP_URL = os.getenv("MCP_SERVER_URL", "http://localhost:3000/sse")
+# MCP server port. 3000 is Playwright MCP's default but clashes with Grafana; override via MCP_PORT.
+DEFAULT_MCP_PORT = int(os.getenv("MCP_PORT", "3000"))
+DEFAULT_MCP_URL = os.getenv("MCP_SERVER_URL", f"http://localhost:{DEFAULT_MCP_PORT}/sse")
+
+# Default desktop Chrome UA; prevents headless-detection blocks on many sites.
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/131.0.0.0 Safari/537.36"
+)
+
 CONTAINER_SCREENSHOT_DIR = Path("/screenshots")
 DEFAULT_OUT_DIR = Path(os.getenv("SCREENSHOTS_DIR", "./screenshots"))
 CONTAINER_PDF_DIR = Path("/pdfs")
@@ -436,6 +447,34 @@ async def set_viewport(session: ClientSession, width: int, height: int) -> None:
     logger.info(f"Viewport set to {width}x{height}")
 
 
+async def set_user_agent(session: ClientSession, user_agent: str) -> None:
+    """Override the page-level User-Agent header."""
+    ua_code = f"""async (page) => {{
+        await page.setExtraHTTPHeaders({{ 'User-Agent': {json.dumps(user_agent)} }});
+    }}"""
+    await call_tool(session, "browser_run_code_unsafe", code=ua_code)
+    logger.debug(f"User-agent set to: {user_agent}")
+
+
+def resolve_device(device_name: str) -> dict[str, Any]:
+    """Look up a Playwright device descriptor by name from the baked-in device table.
+
+    Args:
+        device_name: exact Playwright device name (e.g. "iPhone 16 Pro", "Pixel 9").
+
+    Returns:
+        Dict with keys: userAgent, viewport (width/height), deviceScaleFactor, isMobile, hasTouch.
+
+    Raises:
+        ValueError: if device_name is not found in PLAYWRIGHT_DEVICES.
+    """
+    descriptor = PLAYWRIGHT_DEVICES.get(device_name)
+    if descriptor is None:
+        available = ", ".join(sorted(PLAYWRIGHT_DEVICES))
+        raise ValueError(f"Unknown device: {device_name!r}. Available: {available}")
+    return descriptor
+
+
 async def capture_screenshot(
     session: ClientSession,
     url: str,
@@ -450,13 +489,38 @@ async def capture_screenshot(
     viewport_width: int = 1032,
     viewport_height: int = 1376,
     device_scale_factor: float = 2.0,
+    user_agent: str = DEFAULT_USER_AGENT,
+    device: str | None = None,
 ) -> Path:
     """Navigate, wait for page ready & scroll, clear popups, and capture screenshot."""
+    if device:
+        descriptor = resolve_device(device)
+        viewport_width = descriptor["viewport"]["width"]
+        viewport_height = descriptor["viewport"]["height"]
+        device_scale_factor = descriptor["deviceScaleFactor"]
+        user_agent = descriptor["userAgent"]
+        logger.info(f"Device emulation: {device!r} -> viewport={viewport_width}x{viewport_height}, scale={device_scale_factor}")
+
+    logger.info("--- screenshot params ---")
+    logger.info(f"  url            : {url}")
+    logger.info(f"  output_dir     : {output_dir}")
+    logger.info(f"  viewport       : {viewport_width}x{viewport_height} @ {device_scale_factor}x")
+    logger.info(f"  user_agent     : {user_agent}")
+    logger.info(f"  device         : {device or '(none)'}")
+    logger.info(f"  scroll         : {scroll}  pause_ms={pause_ms}")
+    logger.info(f"  dismiss_popups : {dismiss_popups}")
+    logger.info(f"  custom_selectors: {custom_selectors or []}")
+    logger.info(f"  wait_text      : {wait_text!r}")
+    logger.info(f"  storage_state  : {storage_state_path or '(none)'}")
+    logger.info(f"  convert        : {convert or '(none)'}")
+    logger.info("-------------------------")
+
     url = resolve_url(url)
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
 
     await set_viewport(session, viewport_width, viewport_height)
+    await set_user_agent(session, user_agent)
 
     await ensure_page_ready(
         session,
@@ -515,6 +579,8 @@ async def capture_element(
     viewport_width: int = 1032,
     viewport_height: int = 1376,
     device_scale_factor: float = 2.0,
+    user_agent: str = DEFAULT_USER_AGENT,
+    device: str | None = None,
 ) -> Path:
     """Navigate, wait for DOM ready, and capture a single CSS-selected element as PNG.
 
@@ -533,6 +599,8 @@ async def capture_element(
         viewport_width: viewport width in pixels.
         viewport_height: viewport height in pixels.
         device_scale_factor: device pixel ratio for HiDPI output.
+        user_agent: browser user-agent string.
+        device: Playwright device name; overrides viewport, scale, and user-agent when set.
 
     Returns:
         Path to the captured (and optionally converted) image file.
@@ -541,11 +609,19 @@ async def capture_element(
         FileNotFoundError: if the output file is missing from the host mount after capture.
         RuntimeError: if no element matching selector is found.
     """
+    if device:
+        descriptor = resolve_device(device)
+        viewport_width = descriptor["viewport"]["width"]
+        viewport_height = descriptor["viewport"]["height"]
+        device_scale_factor = descriptor["deviceScaleFactor"]
+        user_agent = descriptor["userAgent"]
+
     url = resolve_url(url)
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
 
     await set_viewport(session, viewport_width, viewport_height)
+    await set_user_agent(session, user_agent)
 
     await ensure_page_ready(
         session,
@@ -610,13 +686,37 @@ async def capture_pdf(
     viewport_height: int = 1376,
     paper_format: str = "A4",
     display_header_footer: bool = False,
+    user_agent: str = DEFAULT_USER_AGENT,
+    device: str | None = None,
 ) -> Path:
     """Render page to PDF with screen colors, DOM settlement, and popup removal."""
+    if device:
+        descriptor = resolve_device(device)
+        viewport_width = descriptor["viewport"]["width"]
+        viewport_height = descriptor["viewport"]["height"]
+        user_agent = descriptor["userAgent"]
+        logger.info(f"Device emulation: {device!r} -> viewport={viewport_width}x{viewport_height}")
+
+    logger.info("--- pdf params ---")
+    logger.info(f"  url               : {url}")
+    logger.info(f"  output_dir        : {output_dir}")
+    logger.info(f"  viewport          : {viewport_width}x{viewport_height}")
+    logger.info(f"  user_agent        : {user_agent}")
+    logger.info(f"  device            : {device or '(none)'}")
+    logger.info(f"  paper_format      : {paper_format}")
+    logger.info(f"  display_header_footer: {display_header_footer}")
+    logger.info(f"  scroll            : {scroll}  pause_ms={pause_ms}")
+    logger.info(f"  dismiss_popups    : {dismiss_popups}")
+    logger.info(f"  custom_selectors  : {custom_selectors or []}")
+    logger.info(f"  storage_state     : {storage_state_path or '(none)'}")
+    logger.info("------------------")
+
     url = resolve_url(url)
     logger.info(f"Navigating to {url}")
     await call_tool(session, "browser_navigate", url=url)
 
     await set_viewport(session, viewport_width, viewport_height)
+    await set_user_agent(session, user_agent)
 
     await ensure_page_ready(
         session,
@@ -627,6 +727,21 @@ async def capture_pdf(
         custom_selectors=custom_selectors,
         storage_state_path=storage_state_path,
     )
+
+    flatten_fixed_js = """async (page) => {
+        await page.evaluate(() => {
+            document.querySelectorAll('*').forEach((el) => {
+                const pos = window.getComputedStyle(el).position;
+                if (pos === 'fixed') {
+                    el.style.setProperty('display', 'none', 'important');
+                } else if (pos === 'sticky') {
+                    el.style.setProperty('position', 'static', 'important');
+                }
+            });
+        });
+    }"""
+    await call_tool(session, "browser_run_code_unsafe", code=flatten_fixed_js)
+    logger.info("Flattened fixed/sticky elements before PDF render")
 
     filename = sanitize_filename(url, extension="pdf")
     container_file_path = str(CONTAINER_PDF_DIR / filename)
@@ -697,6 +812,8 @@ def cmd_screenshot(
     convert: Annotated[str | None, typer.Option("--convert", help="Convert output to this format via ImageMagick (jpeg, png, webp, heic, ps, gif).")] = None,
     viewport_size: Annotated[str, typer.Option("--viewport-size", help="Viewport dimensions as WxH (e.g. 1032x1376).")] = DEFAULT_VIEWPORT,
     device_scale_factor: Annotated[float, typer.Option("--device-scale-factor", help="Device pixel ratio for high-DPI output (e.g. 2 for retina).")] = DEFAULT_DEVICE_SCALE_FACTOR,
+    user_agent: Annotated[str, typer.Option("--user-agent", help="Browser user-agent string.")] = DEFAULT_USER_AGENT,
+    device: Annotated[str | None, typer.Option("--device", help="Playwright device name to emulate (overrides viewport, scale, UA). Use 'devices' command to list.")] = None,
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Capture a high-resolution full-page screenshot of a webpage."""
@@ -718,6 +835,8 @@ def cmd_screenshot(
                 viewport_width=vw,
                 viewport_height=vh,
                 device_scale_factor=device_scale_factor,
+                user_agent=user_agent,
+                device=device,
             )
             console.print(f"[bold green]Successfully saved screenshot:[/bold green] {str(out_file).lstrip('/')}")
 
@@ -738,6 +857,8 @@ def cmd_element(
     convert: Annotated[str | None, typer.Option("--convert", help="Convert output to this format via ImageMagick (webp, jpeg, gif, ...).")] = None,
     viewport_size: Annotated[str, typer.Option("--viewport-size", help="Viewport dimensions as WxH (e.g. 1032x1376).")] = DEFAULT_VIEWPORT,
     device_scale_factor: Annotated[float, typer.Option("--device-scale-factor", help="Device pixel ratio for HiDPI output.")] = DEFAULT_DEVICE_SCALE_FACTOR,
+    user_agent: Annotated[str, typer.Option("--user-agent", help="Browser user-agent string.")] = DEFAULT_USER_AGENT,
+    device: Annotated[str | None, typer.Option("--device", help="Playwright device name to emulate (overrides viewport, scale, UA). Use 'devices' command to list.")] = None,
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Capture a specific CSS-selected element from a page as a PNG."""
@@ -760,6 +881,8 @@ def cmd_element(
                 viewport_width=vw,
                 viewport_height=vh,
                 device_scale_factor=device_scale_factor,
+                user_agent=user_agent,
+                device=device,
             )
             console.print(f"[bold green]Successfully saved element screenshot:[/bold green] {str(out_file).lstrip('/')}")
 
@@ -778,6 +901,8 @@ def cmd_pdf(
     viewport_size: Annotated[str, typer.Option("--viewport-size", help="Viewport dimensions as WxH (e.g. 1032x1376).")] = DEFAULT_VIEWPORT,
     paper_format: Annotated[str, typer.Option("--paper-format", help="PDF paper format (A4, Letter, A3, etc.).")] = "A4",
     headers_footers: Annotated[bool, typer.Option("--headers-footers/--no-headers-footers", help="Include browser-generated page header and footer.")] = False,
+    user_agent: Annotated[str, typer.Option("--user-agent", help="Browser user-agent string.")] = DEFAULT_USER_AGENT,
+    device: Annotated[str | None, typer.Option("--device", help="Playwright device name to emulate (overrides viewport and UA). Use 'devices' command to list.")] = None,
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Render and capture target URL as a PDF document."""
@@ -798,10 +923,35 @@ def cmd_pdf(
                 viewport_height=vh,
                 paper_format=paper_format,
                 display_header_footer=headers_footers,
+                user_agent=user_agent,
+                device=device,
             )
             console.print(f"[bold green]Successfully rendered PDF:[/bold green] {str(out_file).lstrip('/')}")
 
     asyncio.run(run())
+
+
+@app.command("devices")
+def cmd_list_devices() -> None:
+    """List all Playwright device descriptors available for --device emulation."""
+    table = Table(title="Playwright Devices", show_header=True, header_style="bold magenta")
+    table.add_column("Device", style="bold cyan", no_wrap=True)
+    table.add_column("Viewport", no_wrap=True)
+    table.add_column("Scale", justify="right")
+    table.add_column("Mobile", justify="center")
+    table.add_column("Touch", justify="center")
+    table.add_column("User-Agent")
+    for name, d in sorted(PLAYWRIGHT_DEVICES.items()):
+        vp = d.get("viewport") or {}
+        table.add_row(
+            name,
+            f"{vp.get('width', '?')}x{vp.get('height', '?')}",
+            str(d.get("deviceScaleFactor", "")),
+            "yes" if d.get("isMobile") else "no",
+            "yes" if d.get("hasTouch") else "no",
+            d.get("userAgent", ""),
+        )
+    console.print(table)
 
 
 @app.command("tools")

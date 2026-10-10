@@ -9,7 +9,8 @@ SSC=/app/ssc.py
 SCREENSHOTS_DIR=${SCREENSHOTS_DIR:-/screenshots}
 PDFS_DIR=${PDFS_DIR:-/pdfs}
 
-MCP_PORT=3000
+# 3000 is Playwright MCP's default but conflicts with Grafana; override via MCP_PORT env var.
+MCP_PORT=${MCP_PORT:-3000}
 MCP_URL="http://localhost:${MCP_PORT}/sse"
 MCP_HEALTH_URL="http://localhost:${MCP_PORT}/mcp"
 MCP_PID=""
@@ -43,6 +44,8 @@ Options:
   --wait-for-timeout <ms>      Wait before capture; maps to --pause for MCP client (default: 3000)
   --viewport-size <WxH>        Viewport size (default: 1032x1376)
   --device-scale-factor <n>    Device pixel ratio for high-DPI output (default: 2, screenshot only)
+  --user-agent <string>        Browser user-agent string
+  --device <name>              Playwright device to emulate (overrides viewport, scale, UA)
   --full-page                  Capture full page (screenshot only, default: on)
   --no-scroll                  Capture viewport only (no pre-render scroll)
   --ignore-https-errors        Ignore TLS errors (default: on)
@@ -154,6 +157,8 @@ VIEWPORT="1032x1376"
 PAPER_FORMAT="A4"
 DISPLAY_HEADER_FOOTER=false
 DEVICE_SCALE_FACTOR="2"
+USER_AGENT=""
+DEVICE=""
 
 # ssc.py forwarded args (built up as we parse)
 SSC_ARGS=()
@@ -198,6 +203,12 @@ while [[ $# -gt 0 ]]; do
     --custom-selector)
       [[ $# -lt 2 ]] && fail "--custom-selector requires a CSS selector"
       SSC_ARGS+=(--custom-selector "$2"); shift 2 ;;
+    --user-agent)
+      [[ $# -lt 2 ]] && fail "--user-agent requires a string argument"
+      USER_AGENT="$2"; shift 2 ;;
+    --device)
+      [[ $# -lt 2 ]] && fail "--device requires a device name"
+      DEVICE="$2"; shift 2 ;;
     --*)
       # Unknown flags: pass through to ssc.py
       SSC_ARGS+=("$1")
@@ -249,6 +260,8 @@ fi
 [[ "$COMMAND" == "pdf" ]] && SSC_ARGS+=(--paper-format "$PAPER_FORMAT")
 [[ "$COMMAND" == "pdf" && "$DISPLAY_HEADER_FOOTER" == "true" ]] && SSC_ARGS+=(--headers-footers)
 [[ "$COMMAND" == "element" ]] && SSC_ARGS+=(--device-scale-factor "$DEVICE_SCALE_FACTOR")
+[[ -n "$USER_AGENT" ]] && SSC_ARGS+=(--user-agent "$USER_AGENT")
+[[ -n "$DEVICE" ]] && SSC_ARGS+=(--device "$DEVICE")
 
 trap mcp_stop EXIT
 mcp_start

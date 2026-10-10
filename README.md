@@ -44,6 +44,8 @@ Both `url2image` and `url2pdf` accept flags before or after the target:
 url2image https://example.com --convert webp
 url2image https://example.com --no-scroll
 url2image https://example.com --viewport-size 1920x1080
+url2image https://example.com --device "iPhone 15"
+url2image https://example.com --user-agent "Mozilla/5.0 ..."
 
 # PDF
 url2pdf https://example.com --convert jpeg
@@ -75,6 +77,8 @@ Options:
   --ignore-https-errors       Ignore TLS errors
   --out-dir <dir>             Override output directory
   --device-scale-factor <n>   Device pixel ratio for high-DPI output (default: 2, screenshot only)
+  --user-agent <string>       Browser user-agent string (default: desktop Chrome on macOS)
+  --device <name>             Playwright device to emulate - overrides viewport, scale, and UA
   --wait-for <text>           Wait for text to appear before capture (MCP mode only)
   --storage-state <path>      Playwright storageState JSON for authenticated sessions
   --custom-selector <sel>     CSS selector for popup dismissal (repeatable)
@@ -83,6 +87,7 @@ Environment:
   IMAGE_TAG                   Docker image tag (default: latest)
   IMAGE_REGISTRY              Registry host (default: ghcr.io)
   IMAGE_REPO                  Image repository (default: rondomondo/screenshot)
+  MCP_PORT                    MCP server port (default: 3000; override if Grafana is on that port)
   DEBUG                       Set to 1 to trace the docker command
 ```
 
@@ -118,8 +123,26 @@ first start.
 
 ### Connect an MCP client
 
-Point your client at `http://localhost:3000` (SSE transport) or `http://localhost:3000/mcp`
-(HTTP transport). The server runs headless Chromium in isolated mode.
+Point your client at `http://localhost:3000/sse` (SSE transport) or `http://localhost:3000/mcp`
+(HTTP transport). The server runs headless Chromium in isolated mode. If you override `MCP_PORT`,
+adjust the URLs accordingly.
+
+The port defaults to `3000` but can be overridden via the `MCP_PORT` environment variable.
+This is useful when Grafana or another service is already bound to port 3000.
+
+```bash
+MCP_PORT=3001 make mcp-up
+```
+
+### List available devices
+
+```bash
+make mcp-up
+uv run ssc.py devices
+```
+
+This queries the Playwright installation inside the running container and prints a table of every
+device name, viewport, device pixel ratio, and user-agent string you can pass to `--device`.
 
 ## Usage via Make
 
@@ -210,5 +233,7 @@ make clean-all      Remove image tags, builder, generated output, and caches
 - ImageMagick for post-capture format conversion
 - Python 3.12 + `uv` for `ssc.py`
 - Default viewport: 1032x1376 at 2x device pixel ratio
+- Default user-agent: desktop Chrome 131 on macOS (prevents headless detection)
 - Default wait before capture: 3000 ms
+- MCP server port: 3000 (override via `MCP_PORT`; conflicts with Grafana's default)
 - Published to `ghcr.io/rondomondo/screenshot` for `linux/amd64`
