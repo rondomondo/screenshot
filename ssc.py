@@ -609,6 +609,7 @@ async def capture_pdf(
     viewport_width: int = 1032,
     viewport_height: int = 1376,
     paper_format: str = "A4",
+    display_header_footer: bool = False,
 ) -> Path:
     """Render page to PDF with screen colors, DOM settlement, and popup removal."""
     url = resolve_url(url)
@@ -636,6 +637,7 @@ async def capture_pdf(
         "format": paper_format,
         "margin": {"top": "1cm", "right": "1cm", "bottom": "1cm", "left": "1cm"},
         "preferCSSPageSize": True,
+        "displayHeaderFooter": display_header_footer,
     }
     
     pdf_render_code = f"""async (page) => {{
@@ -775,6 +777,7 @@ def cmd_pdf(
     out_dir: Annotated[Path, typer.Option("--out-dir", "-o", help="Target output directory.")] = DEFAULT_PDF_DIR,
     viewport_size: Annotated[str, typer.Option("--viewport-size", help="Viewport dimensions as WxH (e.g. 1032x1376).")] = DEFAULT_VIEWPORT,
     paper_format: Annotated[str, typer.Option("--paper-format", help="PDF paper format (A4, Letter, A3, etc.).")] = "A4",
+    headers_footers: Annotated[bool, typer.Option("--headers-footers/--no-headers-footers", help="Include browser-generated page header and footer.")] = False,
     mcp_url: Annotated[str, typer.Option("--url", "-u", help="MCP SSE endpoint URL.")] = DEFAULT_MCP_URL,
 ) -> None:
     """Render and capture target URL as a PDF document."""
@@ -794,6 +797,7 @@ def cmd_pdf(
                 viewport_width=vw,
                 viewport_height=vh,
                 paper_format=paper_format,
+                display_header_footer=headers_footers,
             )
             console.print(f"[bold green]Successfully rendered PDF:[/bold green] {str(out_file).lstrip('/')}")
 

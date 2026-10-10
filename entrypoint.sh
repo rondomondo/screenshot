@@ -47,6 +47,7 @@ Options:
   --no-scroll                  Capture viewport only (no pre-render scroll)
   --ignore-https-errors        Ignore TLS errors (default: on)
   --paper-format <fmt>         Paper format for PDF (default: A4)
+  --headers-footers            Include browser-generated header and footer in PDF (default: off)
   --wait-for <text>        Wait for text to appear before capture (MCP mode only)
   --storage-state <path>   Path to Playwright storageState JSON (MCP mode only)
   --custom-selector <sel>  CSS selector for popup dismissal (MCP mode only, repeatable)
@@ -151,6 +152,7 @@ SCROLL=true
 WAIT_TIMEOUT_MS=3000
 VIEWPORT="1032x1376"
 PAPER_FORMAT="A4"
+DISPLAY_HEADER_FOOTER=false
 DEVICE_SCALE_FACTOR="2"
 
 # ssc.py forwarded args (built up as we parse)
@@ -174,6 +176,10 @@ while [[ $# -gt 0 ]]; do
     --paper-format)
       [[ $# -lt 2 ]] && fail "--paper-format requires a value"
       PAPER_FORMAT="$2"; shift 2 ;;
+    --headers-footers)
+      DISPLAY_HEADER_FOOTER=true; shift ;;
+    --no-headers-footers)
+      DISPLAY_HEADER_FOOTER=false; shift ;;
     --device-scale-factor)
       [[ $# -lt 2 ]] && fail "--device-scale-factor requires a value"
       DEVICE_SCALE_FACTOR="$2"; shift 2 ;;
@@ -241,6 +247,7 @@ if [[ "$COMMAND" == "screenshot" || "$COMMAND" == "pdf" ]]; then
 fi
 [[ "$COMMAND" == "screenshot" ]] && SSC_ARGS+=(--device-scale-factor "$DEVICE_SCALE_FACTOR")
 [[ "$COMMAND" == "pdf" ]] && SSC_ARGS+=(--paper-format "$PAPER_FORMAT")
+[[ "$COMMAND" == "pdf" && "$DISPLAY_HEADER_FOOTER" == "true" ]] && SSC_ARGS+=(--headers-footers)
 [[ "$COMMAND" == "element" ]] && SSC_ARGS+=(--device-scale-factor "$DEVICE_SCALE_FACTOR")
 
 trap mcp_stop EXIT
