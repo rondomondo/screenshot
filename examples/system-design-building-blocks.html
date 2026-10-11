@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find4 &mdash; System Design Building Blocks</title>
+
+    <meta name="description" content="A Beginner-level Find4 word-grouping game on &#x27;System Design Building Blocks&#x27;. 2 rounds, 32 words. Find the hidden connections between groups of 4.">
+    <meta name="keywords" content="System Design Building Blocks, Cache Write Policies, Message Queue Platforms, Load Balancing Algorithms, Database Scaling Techniques, API Communication Protocols, NoSQL Database Systems, Distributed Consistency Models, High Availability Patterns">
+    <meta name="author" content="Find4">
+    <meta name="theme-color" content="#0f6e56">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://find4.dev/#game=zVjvc9o8Ev5XNHx6by7GQEjS5pv50cA0AQK0nd5NxiPbsq03RnIlOZR28r_frgyOCZe-3NGZuy-JLa9WKz3PPrviZ2PFDI2ooY3rn42ECaaoYZFPTeO60Wl1Lp12y2ldLduX1-3O9fnlPxpnDS0LFTL4nhqT62vXXa_XzZRlmeTCMPXE2boZypWbMaqEqzfasJUTMc0T4XLhUCctlNrAo1EyKkLDpUCvRZIwjWsLukLvexOduBARjAtDM938U9spin0rYIqfgiuYECoGsZMVI1rCnwTMNYmVXJHfF2iz2YSFC5Vp_4kpHvM3zur8uvsez2olo18ZXXSa7W738vyyOlafR7_9ZA3LwWfMBc34D-ZXiJ812HejLPLwMer6qdSmtIy6zYg9gUUkV5QL3bj-Z2344fmswSNfsYRrozaWOnDavmYG4rfGrQ6lrNt4OGskShZ5_dP781bQxdXb78-j6P2LDYft7Iwuu1dBl4ERvehexO_g4arTimgLQ7oIgnaA8-Pw3XkEDzGNwzY-XFEady7goRUHcbezDRS2xLLFxVeufJU_jcf0x1c8ljzjEJOIJcavZGZJh4PVxzdAO2-22-9are7fW63rFkaUUwXM9N9aafsZ0folr19MY26jsRR2q3N3357q_nW2mJTZvFpYSzKwlqRX8CziIiG9TIaPGILOiuQgzGBr5gSl2TMc7A5yxOvn0e4rOuA0mLeWqkT8y3y8HDrL0Xz66WYEhuV7z-t_hJe-1x8NHW8xHgyrTx5YTgZInxDyPpFIxEafhikjXxRwicxkxkPOcNVQZlLBZ8WiMn9rScZEc80fec4iTptSJS6-udaR_wekW14Y2MHfkHlMh4rnNq9gpwa1MoEFiEmpIREDpBhJ5ZpgehGuyRriMEwQIwkloQ2Niohwo0lAw0c8GG2kQp7rR55lfsaeGMY2xnxfYUTGJkEUcVyVZn4pE_bEfqtK7JyFMmI0lRvrotNqX7mtd2677WL0SABd7dqBrTiwW8dIJ0yl1MwBEjiKJ6lxpGAuQvOf0WKrAGBf5X9dPmB8Kx7PZzXmfPQ-fPTAdO71euPl3T08Lu4X8NfrL8efhzCwz5E7pjVNGLkvWAEsyaiJpVrVabLB01wfyZStO_8bujtgyQAlkgcFVDYoTWhpUbfHoUmhYRhWJ1RvREjgzFeF4BArTCYBM2sG7NEIamh5vM-SHuAgoGT_JUMeafxImzRHBtrALfhuDXbkkKJBwM3qm4XeFEBMjtKye0JMnXxjUtjXCchWgn4EsjbDyXzaG09gwnhGRt4CteF26C2WpD-d4PCX4fhmtBy-VoJbSSPSoxkVIcbjZTDOTbqHc6LgfI-EGf35wc7fL5XhZa2dMmA278SBC5iKIUEmxTEPUSiiGktoqKQuBYKBWCD6TJ0APkIrwPa7xVWxrYmbZLAMBSXIYGdOtbM6K-haN-mK_oDGB-euYTMO1wcTTmBDVdWPYMNi5M0H48kNpvpwdjvue8vxFBkw8-bLMT6XHz8MB8N5-W2fEgOQ5YBqRhYhtEIQ1pKFqeDYRdZIEWQ2jY_hxCKlKvL_iLZ-fapAJA0LTaHYIS3uGOROpG2-V4BjGFgT9DaknS8NXFEcTh5qeLbZkUKAOuv_o2qRgthj5DTg0DCVRYMKpxBS4V7ld4fmuZKgO1gldnvbdRVYLspccGSMbydRqeoL36DSw1m93ZgPF0uwvZnP-vafNxvd31o16S2m_Y_D5SvueLMx6e_J80xJI4E0de7khcqzY9kDLg84Ujm1pABmqg2BPEsKqDDbcgHNBPueQ7m1JqEUusA7T1kkiEU1pieVi0TlYZNLN5Kh3iW9g4N7NKgLRaJonn7L7N5KJp2CZNXYv0Jye2HYE4W-t1h4k8EcG4C76eRmOuhZfRiMsQMYfJ14dzi0D-ZELu5vyYsclNW4hqNhNDsSRevrAMeJFI5iGS0PuZbVJfW3Vb8m-2cEc8nBZGK2KQTA_3sEQwrSLiK1V_QBThcigivz68q_kiKRUWDTF-saFZsK9-23U_Cs7mdH4Dn8PJwsP3l4oovlfGoFve99WtgRAHi6BJnvvxb2WvnsQ0LAKxPhhtyBXO7lJxyrSI7Nz5onf4WeDhXd-j9o_zEv1yl0bvYeUOQRHjqBqx154poHAPBWzutl_99Luxc9QZW1t5ZfI_4nyzVsA7I2fAn7FcxQSQw28bq27rbPxya_48KiwhRYcPzKi2mmZpWdVON3t_Ij4C9bdqf8V7XwzgyyvBz44I1vp5-Hc3gcDaHu94bea6keQSIR74nyXVkiMwrXMCXqTIBLNU_kkUxAjz6teTxs-V4qP6R7vl2vZMYjY3nV8cscf2LbqkKh8OBi8AsNw_--rp-A8fYHlzcxfng4q_9GhDPKX4ieH57_BQ==">
+    <meta property="og:title" content="System Design Building Blocks">
+    <meta property="og:description" content="Test your knowledge on System Design Building Blocks. 2 rounds, 32 words.">
+    <meta property="og:image" content="https://find4.org/preview-image.png">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="System Design Building Blocks">
+    <meta name="twitter:description" content="Beginner-level challenge covering System Design Building Blocks.">
+    <meta name="twitter:image" content="https://find4.org/preview-image.png">
+
+    <script type="application/ld+json">
+    {
+  "@context": "https://schema.org",
+  "@type": "EducationalOccupationalCredential",
+  "name": "System Design Building Blocks",
+  "educationalLevel": "Beginner",
+  "abstract": "Covers concepts including: Cache Write Policies, Message Queue Platforms, Load Balancing Algorithms, Database Scaling Techniques."
+}
+    </script>
+
+    <style>
+        body{font-family:system-ui,-apple-system,sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;background:#f5f5f3;color:#111;}
+        .f4-game{background:#fff;border:0.5px solid rgba(0,0,0,0.15);border-radius:12px;padding:1rem 1.25rem;margin-bottom:48px;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);}
+        .f4-game-header{display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap;}
+        .f4-game-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;}
+        .f4-game-title-block{flex:1;min-width:0;}
+        .f4-game-title{font-size:15px;font-weight:500;margin:0;color:#111;}
+        .f4-game-meta{font-size:12px;color:#666;margin:0;}
+        .play-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:#0f6e56;color:#fff;border-radius:10px;text-decoration:none;font-size:13px;font-weight:500;margin-left:auto;transition:background 0.2s;}
+        .play-btn:hover{background:#085041;}
+        .f4-groups{display:flex;flex-direction:column;gap:5px;}
+        .f4-round{font-size:11px;font-weight:500;color:#888;padding:8px 0 3px;text-transform:uppercase;letter-spacing:0.05em;}
+        .f4-group{display:grid;grid-template-columns:13px 1fr 90px 2fr;align-items:start;gap:8px;padding:8px 10px;border-radius:8px;border:0.5px solid #e0e0de;background:#fafaf9;}
+        .f4-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+        .f4-cat{font-size:13px;font-weight:500;line-height:1.3;}
+        .f4-skill{font-size:11px;padding:2px 7px;border-radius:20px;text-align:center;white-space:nowrap;}
+        .f4-words{font-size:11px;color:#666;line-height:1.5;word-break:break-word;}
+        .sk-b{background:#e1f5ee;color:#085041;}.sk-i{background:#e6f1fb;color:#0c447c;}.sk-a{background:#faeeda;color:#633806;}.sk-e{background:#fcebeb;color:#791f1f;}
+        .dot-red{background:#e24b4a;}.dot-green{background:#639922;}.dot-blue{background:#378add;}.dot-yellow{background:#ba7517;}
+        .dot-purple{background:#7f77dd;}.dot-teal{background:#1d9e75;}.dot-orange{background:#d85a30;}.dot-indigo{background:#534ab7;}
+        @media(prefers-color-scheme:dark){
+          body{background:#1a1a18;color:#e8e6e1;}
+          .f4-game{background:#2c2c2a;border-color:rgba(255,255,255,0.1);box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.4);}
+          .f4-game-title{color:#e8e6e1;}
+          .f4-game-meta{color:#888780;}
+          .f4-round{color:#888780;}
+          .f4-group{background:#222220;border-color:#3a3a38;}
+          .f4-cat{color:#e8e6e1;}
+          .f4-words{color:#888780;}
+          .sk-b{background:#04342c;color:#9fe1cb;}.sk-i{background:#042c53;color:#b5d4f4;}.sk-a{background:#412402;color:#fac775;}.sk-e{background:#501313;color:#f7c1c1;}
+        }
+    </style>
+</head>
+<body>
+<div class="f4-game f4-capture">
+  <div class="f4-game-header">
+    <div class="f4-game-icon" style="background:#eeedfe;" aria-hidden="true">&#x1F9E9;</div>
+    <div class="f4-game-title-block">
+      <h1 class="f4-game-title">System Design Building Blocks</h1>
+      <p class="f4-game-meta">2 rounds &middot; 32 words &middot; Beginner level</p>
+    </div>
+    <a class="play-btn" href="https://find4.dev/#game=zVjvc9o8Ev5XNHx6by7GQEjS5pv50cA0AQK0nd5NxiPbsq03RnIlOZR28r_frgyOCZe-3NGZuy-JLa9WKz3PPrviZ2PFDI2ooY3rn42ECaaoYZFPTeO60Wl1Lp12y2ldLduX1-3O9fnlPxpnDS0LFTL4nhqT62vXXa_XzZRlmeTCMPXE2boZypWbMaqEqzfasJUTMc0T4XLhUCctlNrAo1EyKkLDpUCvRZIwjWsLukLvexOduBARjAtDM938U9spin0rYIqfgiuYECoGsZMVI1rCnwTMNYmVXJHfF2iz2YSFC5Vp_4kpHvM3zur8uvsez2olo18ZXXSa7W738vyyOlafR7_9ZA3LwWfMBc34D-ZXiJ812HejLPLwMer6qdSmtIy6zYg9gUUkV5QL3bj-Z2344fmswSNfsYRrozaWOnDavmYG4rfGrQ6lrNt4OGskShZ5_dP781bQxdXb78-j6P2LDYft7Iwuu1dBl4ERvehexO_g4arTimgLQ7oIgnaA8-Pw3XkEDzGNwzY-XFEady7goRUHcbezDRS2xLLFxVeufJU_jcf0x1c8ljzjEJOIJcavZGZJh4PVxzdAO2-22-9are7fW63rFkaUUwXM9N9aafsZ0folr19MY26jsRR2q3N3357q_nW2mJTZvFpYSzKwlqRX8CziIiG9TIaPGILOiuQgzGBr5gSl2TMc7A5yxOvn0e4rOuA0mLeWqkT8y3y8HDrL0Xz66WYEhuV7z-t_hJe-1x8NHW8xHgyrTx5YTgZInxDyPpFIxEafhikjXxRwicxkxkPOcNVQZlLBZ8WiMn9rScZEc80fec4iTptSJS6-udaR_wekW14Y2MHfkHlMh4rnNq9gpwa1MoEFiEmpIREDpBhJ5ZpgehGuyRriMEwQIwkloQ2Niohwo0lAw0c8GG2kQp7rR55lfsaeGMY2xnxfYUTGJkEUcVyVZn4pE_bEfqtK7JyFMmI0lRvrotNqX7mtd2677WL0SABd7dqBrTiwW8dIJ0yl1MwBEjiKJ6lxpGAuQvOf0WKrAGBf5X9dPmB8Kx7PZzXmfPQ-fPTAdO71euPl3T08Lu4X8NfrL8efhzCwz5E7pjVNGLkvWAEsyaiJpVrVabLB01wfyZStO_8bujtgyQAlkgcFVDYoTWhpUbfHoUmhYRhWJ1RvREjgzFeF4BArTCYBM2sG7NEIamh5vM-SHuAgoGT_JUMeafxImzRHBtrALfhuDXbkkKJBwM3qm4XeFEBMjtKye0JMnXxjUtjXCchWgn4EsjbDyXzaG09gwnhGRt4CteF26C2WpD-d4PCX4fhmtBy-VoJbSSPSoxkVIcbjZTDOTbqHc6LgfI-EGf35wc7fL5XhZa2dMmA278SBC5iKIUEmxTEPUSiiGktoqKQuBYKBWCD6TJ0APkIrwPa7xVWxrYmbZLAMBSXIYGdOtbM6K-haN-mK_oDGB-euYTMO1wcTTmBDVdWPYMNi5M0H48kNpvpwdjvue8vxFBkw8-bLMT6XHz8MB8N5-W2fEgOQ5YBqRhYhtEIQ1pKFqeDYRdZIEWQ2jY_hxCKlKvL_iLZ-fapAJA0LTaHYIS3uGOROpG2-V4BjGFgT9DaknS8NXFEcTh5qeLbZkUKAOuv_o2qRgthj5DTg0DCVRYMKpxBS4V7ld4fmuZKgO1gldnvbdRVYLspccGSMbydRqeoL36DSw1m93ZgPF0uwvZnP-vafNxvd31o16S2m_Y_D5SvueLMx6e_J80xJI4E0de7khcqzY9kDLg84Ujm1pABmqg2BPEsKqDDbcgHNBPueQ7m1JqEUusA7T1kkiEU1pieVi0TlYZNLN5Kh3iW9g4N7NKgLRaJonn7L7N5KJp2CZNXYv0Jye2HYE4W-t1h4k8EcG4C76eRmOuhZfRiMsQMYfJ14dzi0D-ZELu5vyYsclNW4hqNhNDsSRevrAMeJFI5iGS0PuZbVJfW3Vb8m-2cEc8nBZGK2KQTA_3sEQwrSLiK1V_QBThcigivz68q_kiKRUWDTF-saFZsK9-23U_Cs7mdH4Dn8PJwsP3l4oovlfGoFve99WtgRAHi6BJnvvxb2WvnsQ0LAKxPhhtyBXO7lJxyrSI7Nz5onf4WeDhXd-j9o_zEv1yl0bvYeUOQRHjqBqx154poHAPBWzutl_99Luxc9QZW1t5ZfI_4nyzVsA7I2fAn7FcxQSQw28bq27rbPxya_48KiwhRYcPzKi2mmZpWdVON3t_Ij4C9bdqf8V7XwzgyyvBz44I1vp5-Hc3gcDaHu94bea6keQSIR74nyXVkiMwrXMCXqTIBLNU_kkUxAjz6teTxs-V4qP6R7vl2vZMYjY3nV8cscf2LbqkKh8OBi8AsNw_--rp-A8fYHlzcxfng4q_9GhDPKX4ieH57_BQ==" target="_blank" rel="noopener"><span>&#9654;</span> Play on find4.dev</a>
+  </div>
+
+  <div class="f4-groups">
+    <h2 class="f4-round">Round 1</h2>
+    <div class="f4-group">
+        <div class="f4-dot dot-red" role="img" aria-label="Intermediate Level Category"></div>
+        <div class="f4-cat">Cache Write Policies</div>
+        <span class="f4-skill sk-i">Intermediate</span>
+        <div class="f4-words">WRITE-THROUGH &middot; WRITE-BACK &middot; CACHE-ASIDE &middot; WRITE-AROUND</div>
+    </div>
+    <div class="f4-group">
+        <div class="f4-dot dot-yellow" role="img" aria-label="Beginner Level Category"></div>
+        <div class="f4-cat">Message Queue Platforms</div>
+        <span class="f4-skill sk-b">Beginner</span>
+        <div class="f4-words">KAFKA &middot; RABBITMQ &middot; SQS &middot; ACTIVEMQ</div>
+    </div>
+    <div class="f4-group">
+        <div class="f4-dot dot-green" role="img" aria-label="Beginner Level Category"></div>
+        <div class="f4-cat">Load Balancing Algorithms</div>
+        <span class="f4-skill sk-b">Beginner</span>
+        <div class="f4-words">ROUND ROBIN &middot; IP HASH &middot; LEAST CONN &middot; WEIGHTED</div>
+    </div>
+    <div class="f4-group">
+        <div class="f4-dot dot-blue" role="img" aria-label="Intermediate Level Category"></div>
+        <div class="f4-cat">Database Scaling Techniques</div>
+        <span class="f4-skill sk-i">Intermediate</span>
+        <div class="f4-words">SHARDING &middot; REPLICATION &middot; PARTITIONING &middot; FEDERATION</div>
+    </div>
+    <h2 class="f4-round">Round 2</h2>
+    <div class="f4-group">
+        <div class="f4-dot dot-purple" role="img" aria-label="Beginner Level Category"></div>
+        <div class="f4-cat">API Communication Protocols</div>
+        <span class="f4-skill sk-b">Beginner</span>
+        <div class="f4-words">REST &middot; GRPC &middot; GRAPHQL &middot; WEBSOCKET</div>
+    </div>
+    <div class="f4-group">
+        <div class="f4-dot dot-teal" role="img" aria-label="Beginner Level Category"></div>
+        <div class="f4-cat">NoSQL Database Systems</div>
+        <span class="f4-skill sk-b">Beginner</span>
+        <div class="f4-words">CASSANDRA &middot; MONGODB &middot; REDIS &middot; DYNAMODB</div>
+    </div>
+    <div class="f4-group">
+        <div class="f4-dot dot-orange" role="img" aria-label="Advanced Level Category"></div>
+        <div class="f4-cat">Distributed Consistency Models</div>
+        <span class="f4-skill sk-a">Advanced</span>
+        <div class="f4-words">EVENTUAL &middot; STRONG &middot; CAUSAL &middot; MONOTONIC</div>
+    </div>
+    <div class="f4-group">
+        <div class="f4-dot dot-indigo" role="img" aria-label="Intermediate Level Category"></div>
+        <div class="f4-cat">High Availability Patterns</div>
+        <span class="f4-skill sk-i">Intermediate</span>
+        <div class="f4-words">ACTIVE-ACTIVE &middot; ACTIVE-PASSIVE &middot; FAILOVER &middot; HEARTBEAT</div>
+    </div>
+  </div>
+</div>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZM0LH3FE54"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-ZM0LH3FE54');
+</script>
+
+</body>
+</html>

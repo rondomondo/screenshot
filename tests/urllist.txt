@@ -1,0 +1,11 @@
+https://en.wikipedia.org/wiki/Dash_Crofts
+https://jax-ml.github.io/scaling-book/index
+https://blog.google/chromium/bringing-a-clearer-more-consistent-hdr-video-experience-to-chrome/
+https://en.wikipedia.org/wiki/Special:Random
+https://jax-ml.github.io/scaling-book/gpus/
+https://developers.openai.com/blog/automating-repetitive-work-at-openai-with-codex
+https://developers.openai.com/blog/skills-shell-tips
+https://rte.ie
+https://www.linuxfoundation.org/
+https://www.anthropic.com/engineering/code-execution-with-mcp
+https://developers.openai.com/api/docs/guides/tools-skills
