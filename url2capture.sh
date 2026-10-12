@@ -10,6 +10,8 @@ IMAGE_REPO="${IMAGE_REPO:-rondomondo/screenshot}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 IMAGE="${IMAGE_REGISTRY}/${IMAGE_REPO}:${IMAGE_TAG}"
 
+EXAMPLE_URL="${EXAMPLE_URL:-https://jax-ml.github.io/scaling-book/index}"
+
 # Dispatch based on the name this script was invoked as.
 INVOKED_AS="$(basename "$0")"
 case "$INVOKED_AS" in
@@ -50,8 +52,8 @@ usage() {
             printf "  --storage-state, -s <file>\n" >&2
             printf "                          Playwright storageState JSON (cookies, localStorage)\n" >&2
             printf "\n${BOLD}Examples:${RESET}\n" >&2
-            printf "  url2pdf https://en.wikipedia.org/wiki/Special:Random\n" >&2
-            printf "  url2pdf https://example.com --paper-format Letter\n" >&2
+            printf "  url2pdf ${EXAMPLE_URL}\n" >&2
+            printf "  url2pdf https://en.wikipedia.org/wiki/Special:Random --paper-format Letter\n" >&2
             printf "  url2pdf https://en.wikipedia.org/wiki/Dash_Crofts --hide '.infobox'\n" >&2
             ;;
         screenshot)
@@ -83,9 +85,9 @@ usage() {
             printf "  --selector, -s <css>    Element to capture (required for element)\n" >&2
             printf "  --hide, -H <css>        Element to hide before capture (repeatable)\n" >&2
             printf "\n${BOLD}Examples:${RESET}\n" >&2
-            printf "  url2image https://en.wikipedia.org/wiki/Special:Random\n" >&2
-            printf "  url2image https://example.com --convert webp\n" >&2
-            printf "  url2image https://example.com --device 'iPhone 15'\n" >&2
+            printf "  url2image ${EXAMPLE_URL}\n" >&2
+            printf "  url2image https://en.wikipedia.org/wiki/Special:Random --convert webp\n" >&2
+            printf "  url2image https://en.wikipedia.org/wiki/Special:Random --device 'iPhone 15'\n" >&2
             printf "  url2image element --selector '.infobox' https://en.wikipedia.org/wiki/Dash_Crofts\n" >&2
             ;;
     esac
@@ -96,7 +98,7 @@ usage() {
     printf "  IMAGE_TAG               Docker image tag (default: latest)\n" >&2
     printf "  IMAGE_REGISTRY          Registry host (default: ghcr.io)\n" >&2
     printf "  IMAGE_REPO              Image repository (default: rondomondo/screenshot)\n" >&2
-    printf "                          e.g. IMAGE_TAG=0.0.21 url2pdf https://example.com\n" >&2
+    printf "                          e.g. IMAGE_TAG=latest url2pdf ${EXAMPLE_URL}\n" >&2
     printf "  DEBUG=1                 Print the docker command and enable shell tracing in the container\n" >&2
     exit "${1:-1}"
 }
