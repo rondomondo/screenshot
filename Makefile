@@ -15,11 +15,14 @@ REGISTRY   ?= ghcr.io
 IMAGE_REPO := rondomondo/screenshot
 REMOTE     := $(REGISTRY)/$(IMAGE_REPO)
 VERSION     = $(shell cat VERSION 2>/dev/null | tr -d '[:space:]')
-#PLATFORMS  := linux/amd64,linux/arm64
-PLATFORMS  := linux/amd64
+PLATFORMS  := linux/amd64,linux/arm64
+#PLATFORMS  := linux/amd64
 BUILDER    := screenshotter-builder
 NO_CACHE   ?= 0
 _CACHE_FLAG = $(if $(filter 1,$(NO_CACHE)),--no-cache,)
+RC_VERSION := 1.0.0-rc.1
+# Pre-release versions (containing a hyphen) must never move :latest
+_LATEST_TAG = $(if $(findstring -,$(VERSION)),,--tag $(REMOTE):latest)
 
 # -- Paths & Directory Defaults -------------------------------
 SCREENSHOTS_DIR ?= $(CURDIR)/screenshots
@@ -82,13 +85,17 @@ push: builder-init ## Build multi-platform image and push to ghcr.io (amd64 + ar
 	  --build-arg SCREENSHOT_VERSION=$(VERSION) \
 	  --platform $(PLATFORMS) \
 	  --tag $(REMOTE):$(VERSION) \
-	  --tag $(REMOTE):beta \
+	  $(_LATEST_TAG) \
 	  --push \
 	  .
-	@printf "$(GREEN)Pushed$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest ($(PLATFORMS))\n"
+	@printf "$(GREEN)Pushed$(RESET) $(REMOTE):$(VERSION) $(if $(_LATEST_TAG),and $(REMOTE):latest )($(PLATFORMS))\n"
 
 .PHONY: release
 release: bump push ## Bump patch version, build multi-platform, and push to ghcr.io
+
+.PHONY: release-rc
+release-rc: ## One-off: push $(RC_VERSION) to ghcr.io without bumping VERSION or moving :latest
+	$(MAKE) push VERSION=$(RC_VERSION)
 
 .PHONY: retag
 retag: ## Re-tag an existing remote image without pulling: make retag FROM=latest TAG=v0.1.1
