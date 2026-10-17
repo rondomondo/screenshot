@@ -79,11 +79,26 @@ Set `IMAGE_TAG` to pin a specific image version:
 IMAGE_TAG=0.0.21 url2pdf https://https://jax-ml.github.io/scaling-book/gpus/
 ```
 
-Set `DEBUG=1` to print the full `docker run` command before it executes:
+## Logging
+
+Output is quiet by default (WARNING and above, plus the `[screenshot:<host>]` progress lines from the container
+entrypoint). Raise verbosity with any of these; the first match wins:
+
+| Control                     | Effect                                                                         |
+|-----------------------------|--------------------------------------------------------------------------------|
+| `--log-level <level>`       | Per run: `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`                     |
+| `LOG_LEVEL=<level>`         | Same, via the environment (forwarded into the container by `url2pdf`/`url2image`) |
+| `DEBUG=1`                   | `LOG_LEVEL=DEBUG`, plus the `docker run` command, shell tracing and the MCP server log |
 
 ```bash
-DEBUG=1 url2pdf https://https://jax-ml.github.io/scaling-book/gpus/
+url2pdf --log-level INFO https://en.wikipedia.org/wiki/Special:Random
+LOG_LEVEL=DEBUG url2pdf https://en.wikipedia.org/wiki/Special:Random
+DEBUG=1 url2pdf https://en.wikipedia.org/wiki/Special:Random
 ```
+
+The same variables work for `make pdf` / `make screenshot` (they run `ssc.py` on the host) and for `uv run ssc.py
+--log-level INFO pdf ...`. For the long-lived `make mcp-up` container, `LOG_LEVEL` is passed through, and `DEBUG` is
+handed to Playwright's own debug filter, e.g. `DEBUG=pw:mcp* make mcp-up`.
 
 ## All options
 
@@ -107,7 +122,8 @@ Environment:
   IMAGE_REGISTRY              Registry host (default: ghcr.io)
   IMAGE_REPO                  Image repository (default: rondomondo/screenshot)
   MCP_PORT                    MCP server port (default: 3000; override if Grafana is on that port)
-  DEBUG                       Set to 1 to trace the docker command
+  LOG_LEVEL                   DEBUG, INFO, WARNING (default), ERROR, CRITICAL; also --log-level
+  DEBUG                       Set to 1 for LOG_LEVEL=DEBUG, the docker command and shell tracing
 ```
 
 ## Local HTML files
@@ -199,7 +215,7 @@ docker run --rm \
   ghcr.io/rondomondo/screenshot:latest \
   screenshot my-page.html
 
-# DEBUG=1 traces every command inside the container
+# DEBUG=1 traces every command inside the container; LOG_LEVEL=INFO|DEBUG or --log-level tunes ssc.py output
 docker run --rm -e DEBUG=1 \
   -v $(pwd)/screenshots:/screenshots \
   ghcr.io/rondomondo/screenshot:latest \

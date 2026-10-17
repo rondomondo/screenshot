@@ -1,5 +1,6 @@
-https://en.wikipedia.org/wiki/Dash_Crofts
 https://jax-ml.github.io/scaling-book/index
+https://en.wikipedia.org/wiki/1822_Vermont_gubernatorial_election
+https://en.wikipedia.org/wiki/Dash_Crofts
 https://blog.google/chromium/bringing-a-clearer-more-consistent-hdr-video-experience-to-chrome/
 https://en.wikipedia.org/wiki/Special:Random
 https://jax-ml.github.io/scaling-book/gpus/

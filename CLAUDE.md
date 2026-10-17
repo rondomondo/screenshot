@@ -36,7 +36,7 @@ check those memory files before asking the user to re-explain.
 - Use `copy.deepcopy` before mutating shared data structures
 - All file I/O must use `encoding='utf-8'`; JSON output uses `ensure_ascii=False`
 - Magic numbers must be named constants (`ALL_CAPS`)
-- Private helpers are prefixed with `_`; public API is clearly separated
+- NEVER prefix functions or variables with underscore or double underscore (`_foo`, `__foo`, `__foo__`) -- use descriptive names or module-level encapsulation instead; this applies to all Python code including private helpers, dunder overrides, and name-mangled attributes
 
 ## Type hints
 
@@ -74,6 +74,7 @@ check those memory files before asking the user to re-explain.
 - Validate all arguments in `main()` before any processing begins
 - Scripts designed for pipeline composition read from stdin, write data to stdout, and send errors to stderr
 - Entry point: `if __name__ == "__main__": main()`
+- NEVER use underscore-prefixed names in top-level scripts; helper functions called only from `main()` should be named plainly (e.g. `parse_args`, `run`, `load_config`) -- not `_parse_args` or `_run`
 - Always include `-h` as a short alias for `--help`; for `argparse` pass `add_help=True` (default) and add `formatter_class`; for `typer` pass `context_settings={"help_option_names": ["-h", "--help"]}` to the `Typer()` constructor
 
 ## Standalone scripts (uv shebang)

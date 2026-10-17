@@ -43,6 +43,10 @@ services:
         environment:
             - SESSION=${SESSION:-default}
             - MCP_PORT=${MCP_PORT:-3000}
+            # The server is Playwright's node CLI, so DEBUG here is Playwright's own debug filter,
+            # e.g. DEBUG=pw:mcp* make mcp-up
+            - DEBUG=${DEBUG:-}
+            - LOG_LEVEL=${LOG_LEVEL:-WARNING}
         restart: unless-stopped
         healthcheck:
             test:

@@ -1,7 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-[[ "${DEBUG:-0}" == "1" ]] && set -x
+is_truthy() { case "${1,,}" in 1|true|yes|on) return 0 ;; *) return 1 ;; esac; }
+
+# Precedence matches ssc.py: --log-level, then LOG_LEVEL, then DEBUG=1 (-> DEBUG), then WARNING.
+LOG_LEVEL=${LOG_LEVEL:-}
+if [[ -z "$LOG_LEVEL" ]] && is_truthy "${DEBUG:-0}"; then LOG_LEVEL=DEBUG; fi
+if is_truthy "${DEBUG:-0}"; then set -x; fi
 
 PW_CLI=/app/node_modules/playwright-chromium/cli.js
 PW_MCP_CLI=/app/node_modules/playwright-core/cli.js
@@ -57,6 +62,7 @@ Options:
   --headers-footers            Include browser-generated header and footer in PDF (default: off)
   --unclip                     Free fixed-height scroll containers before PDF render (default: on)
   --no-unclip                  Disable scroll-container freeing before PDF render
+  --log-level <level>          DEBUG, INFO, WARNING, ERROR or CRITICAL (default: WARNING)
   --storage-state <path>       Path to Playwright storageState JSON (MCP mode only)
   --custom-selector <sel>      CSS selector for popup dismissal (MCP mode only, repeatable)
   --dismiss-popups / --no-dismiss-popups   Toggle cookie and popup dismissal (default: on, off for element)
@@ -64,6 +70,12 @@ Options:
   --hide <css>                 Element to hide before capture (element and pdf, repeatable)
   Short forms: -o --out-dir, -c --custom-selector, -H --hide, -s --selector (element) or --storage-state
   Any other --flag value pairs are passed through to ssc.py. The target may appear anywhere, including last.
+
+Logging:
+  Default is WARNING. Raise verbosity with any of (first match wins):
+    --log-level INFO|DEBUG     per run
+    LOG_LEVEL=INFO|DEBUG       environment variable
+    DEBUG=1                    LOG_LEVEL=DEBUG plus shell tracing (set -x) and the MCP server log on exit
 
 MCP server (standalone):
   docker run --rm -p 3000:3000 ghcr.io/rondomondo/screenshot mcp \\
@@ -224,6 +236,9 @@ while [[ $# -gt 0 ]]; do
     --paper-format)
       [[ $# -lt 2 ]] && fail "--paper-format requires a value"
       PAPER_FORMAT="$2"; shift 2 ;;
+    --log-level)
+      [[ $# -lt 2 ]] && fail "--log-level requires a level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+      LOG_LEVEL="$2"; shift 2 ;;
     --headers-footers)
       DISPLAY_HEADER_FOOTER=true; shift ;;
     --no-headers-footers)
@@ -282,6 +297,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+LOG_LEVEL=${LOG_LEVEL:-WARNING}
+LOG_LEVEL=${LOG_LEVEL^^}
+case "$LOG_LEVEL" in
+  WARN) LOG_LEVEL=WARNING ;;
+  DEBUG|INFO|WARNING|ERROR|CRITICAL) ;;
+  *) fail "Invalid log level '$LOG_LEVEL' (use DEBUG, INFO, WARNING, ERROR or CRITICAL)" ;;
+esac
+export LOG_LEVEL
+
 [[ -z "$TARGET" ]] && fail "No target specified. Provide a URL or HTML file path."
 if [[ "$COMMAND" == "element" ]]; then
   has_selector=false
@@ -319,6 +343,7 @@ FINAL_FILE="$OUT_FILE"
 log "command:  $COMMAND"
 log "target:   $TARGET"
 log "output:   $FINAL_FILE"
+log "loglevel: $LOG_LEVEL (more detail: --log-level INFO|DEBUG, LOG_LEVEL=INFO|DEBUG, or DEBUG=1 for full trace)"
 
 # Convert --wait-for-timeout ms to --pause ms (ssc.py uses per-scroll-step pause, not total wait)
 PAUSE_MS=$(( WAIT_TIMEOUT_MS / 6 ))
@@ -358,7 +383,14 @@ fi
 [[ -n "$USER_AGENT" ]] && SSC_ARGS+=(--user-agent "$USER_AGENT")
 [[ -n "$CONVERT_FMT" ]] && SSC_ARGS+=(--convert "$CONVERT_FMT")
 
-trap mcp_stop EXIT
+mcp_cleanup() {
+  mcp_stop
+  if [[ "$LOG_LEVEL" == "DEBUG" && -s /tmp/mcp-server.log ]]; then
+    log "MCP server log (/tmp/mcp-server.log):"
+    sed 's/^/    /' /tmp/mcp-server.log >&2
+  fi
+}
+trap mcp_cleanup EXIT
 mcp_start
 
 log "Running ssc.py ${COMMAND}..."

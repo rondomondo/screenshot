@@ -41,7 +41,9 @@ MCP_HTTP_URL    := http://localhost:$(MCP_PORT)/mcp
 
 # f [ -f '/Users/davek/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/davek/google-cloud-sdk/completion.zsh.inc'; fi
 
-# Alternative: https://en.wikipedia.org/wiki/Special:Random
+# Alternatives: 
+# https://en.wikipedia.org/wiki/Special:Random
+# https://en.wikipedia.org/wiki/1822_Vermont_gubernatorial_election
 EXAMPLE_URL     ?= https://jax-ml.github.io/scaling-book/index
 
 # -- Help -----------------------------------------------------

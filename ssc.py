@@ -18,7 +18,7 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any
@@ -32,12 +32,43 @@ from rich.table import Table
 
 from devices import PLAYWRIGHT_DEVICES
 
-# Setup structured logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger("mcp_client")
+
+DEFAULT_LOG_LEVEL = "WARNING"
+VALID_LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+TRUTHY_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def resolve_log_level(cli_level: str | None = None, environ: Mapping[str, str] | None = None) -> str:
+    """Pick the effective log level from the CLI flag, LOG_LEVEL, or DEBUG, in that order.
+
+    Args:
+        cli_level: value of --log-level, if given.
+        environ: environment mapping to read; defaults to os.environ.
+
+    Returns:
+        An upper-case level name from VALID_LOG_LEVELS.
+
+    Raises:
+        ValueError: if an explicit level is not one of VALID_LOG_LEVELS.
+    """
+    env = os.environ if environ is None else environ
+    explicit = cli_level or env.get("LOG_LEVEL", "").strip()
+    if explicit:
+        level = explicit.upper()
+        if level == "WARN":
+            level = "WARNING"
+        if level not in VALID_LOG_LEVELS:
+            raise ValueError(f"Invalid log level {explicit!r}. Choose from: {', '.join(VALID_LOG_LEVELS)}")
+        return level
+    if env.get("DEBUG", "").strip().lower() in TRUTHY_VALUES:
+        return "DEBUG"
+    return DEFAULT_LOG_LEVEL
+
+
+def configure_logging(level: str) -> None:
+    """Configure root logging for the CLI entry point; libraries must not call this."""
+    logging.basicConfig(level=level, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", force=True)
 
 class McpConnectionError(Exception):
     """Raised when all MCP connection attempts fail; message already printed."""
@@ -51,6 +82,24 @@ app = typer.Typer(
 )
 console = Console()
 err_console = Console(stderr=True)
+
+
+@app.callback()
+def main_callback(
+    log_level: Annotated[
+        str | None,
+        typer.Option(
+            "--log-level",
+            help="DEBUG, INFO, WARNING, ERROR or CRITICAL. Falls back to $LOG_LEVEL, then DEBUG=1, then WARNING.",
+        ),
+    ] = None,
+) -> None:
+    """Playwright-based MCP client for screenshot and PDF captures."""
+    try:
+        configure_logging(resolve_log_level(log_level))
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 # MCP server port. 3000 is Playwright MCP's default but clashes with Grafana; override via MCP_PORT.
 DEFAULT_MCP_PORT = int(os.getenv("MCP_PORT", "3000"))

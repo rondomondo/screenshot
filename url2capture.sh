@@ -99,7 +99,8 @@ usage() {
     printf "  IMAGE_REGISTRY          Registry host (default: ghcr.io)\n" >&2
     printf "  IMAGE_REPO              Image repository (default: rondomondo/screenshot)\n" >&2
     printf "                          e.g. IMAGE_TAG=latest url2pdf ${EXAMPLE_URL}\n" >&2
-    printf "  DEBUG=1                 Print the docker command and enable shell tracing in the container\n" >&2
+    printf "  LOG_LEVEL               DEBUG, INFO, WARNING (default), ERROR or CRITICAL; also --log-level <level>\n" >&2
+    printf "  DEBUG=1                 Print the docker command, set LOG_LEVEL=DEBUG and trace the container shell\n" >&2
     exit "${1:-1}"
 }
 
@@ -164,7 +165,7 @@ while [ "$ARG_COUNT" -gt 0 ]; do
         --storage-state) EXPECT_VALUE=storage ;;
         -s)
             if [ "$COMMAND" = "element" ]; then EXPECT_VALUE=plain; else EXPECT_VALUE=storage; fi ;;
-        --convert|--out-dir|-o|--wait-for-timeout|--wait-for|-w|--viewport-size|--paper-format|--device-scale-factor|--custom-selector|-c|--hide|-H|--selector|--user-agent|--device)
+        --convert|--out-dir|-o|--wait-for-timeout|--wait-for|-w|--viewport-size|--paper-format|--device-scale-factor|--custom-selector|-c|--hide|-H|--selector|--user-agent|--device|--log-level)
             EXPECT_VALUE=plain ;;
         -*) ;;
         *) [ -z "$TARGET" ] && TARGET="$arg" ;;
@@ -202,9 +203,11 @@ case "$TARGET" in
 esac
 
 set -- -v "${CWD}/pdfs:/pdfs" -v "${CWD}/screenshots:/screenshots" "$@"
-[ "${DEBUG:-0}" = "1" ] && set -- -e DEBUG=1 "$@"
+case "$(printf '%s' "${DEBUG:-0}" | tr 'A-Z' 'a-z')" in 1|true|yes|on) DEBUG_ON=1 ;; *) DEBUG_ON=0 ;; esac
+[ "$DEBUG_ON" = "1" ] && set -- -e DEBUG=1 "$@"
+[ -n "${LOG_LEVEL:-}" ] && set -- -e "LOG_LEVEL=${LOG_LEVEL}" "$@"
 set -- run --rm "$@"
 
-[ "${DEBUG:-0}" = "1" ] && printf "${CYAN}debug${RESET}  docker %s\n" "$*" >&2
+[ "$DEBUG_ON" = "1" ] && printf "${CYAN}debug${RESET}  docker %s\n" "$*" >&2
 
 exec docker "$@"
