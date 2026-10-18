@@ -1,0 +1,10 @@
+*
+!package.json
+!package-lock.json
+!entrypoint.sh
+!install.sh
+!uninstall.sh
+!ssc.py
+!url2capture.sh
+!.bashrc
+!.bash_aliases

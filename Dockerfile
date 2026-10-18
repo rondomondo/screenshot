@@ -1,10 +1,12 @@
 # Screenshot image: python:3.12-slim + uv + Node 22 + playwright-chromium (npm)
-FROM node:22-slim AS node-src
+# Base images are digest-pinned so an upstream tag move cannot silently invalidate every layer; bump with:
+#   docker buildx imagetools inspect <image> | grep ^Digest
+FROM node:22-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS node-src
 
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 
-COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /usr/local/bin/
-COPY --from=mikefarah/yq:4 /usr/bin/yq /usr/local/bin/yq
+COPY --from=ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 /uv /uvx /usr/local/bin/
+COPY --from=mikefarah/yq:4@sha256:4b3d9475d65571d28cbb19544d3820ec2945e4c8b2f18279394282b8dc3a592e /usr/bin/yq /usr/local/bin/yq
 
 # Node comes from the official image so it is v22, not Debian's older nodejs package
 COPY --from=node-src /usr/local/bin/node /usr/local/bin/node
@@ -45,13 +47,6 @@ COPY --chown=root:root ssc.py /app/ssc.py
 RUN curl -fsSL https://rondomondo.github.io/pw-device-list/devices.py -o /app/devices.py
 COPY --chown=root:root url2capture.sh /usr/local/lib/screenshot/url2capture.sh
 
-# Bake the image version into url2capture.sh so installed copies default to the correct tag.
-ARG SCREENSHOT_VERSION
-ENV SCREENSHOT_VERSION=${SCREENSHOT_VERSION:-unknown}
-RUN if [ -n "$SCREENSHOT_VERSION" ]; then \
-      sed -i "s/IMAGE_TAG:-latest/IMAGE_TAG:-${SCREENSHOT_VERSION}/" /usr/local/lib/screenshot/url2capture.sh; \
-    fi
-
 # Pre-warm the uv script environment so the first capture does not resolve deps.
 # Drop download caches (archive, index, sdists, wheels) but keep environments-v2 so the
 # pre-warmed venv survives and the first runtime invocation stays fast without a network hit.
@@ -72,4 +67,13 @@ RUN chmod +x /entrypoint.sh /install.sh /uninstall.sh \
     /usr/local/lib/screenshot/url2capture.sh
 
 VOLUME ["/screenshots", "/pdfs", "/html"]
+
+# Declared last: an ARG/ENV change busts the cache of every later layer, so only this tiny RUN reruns per release.
+# Bake the image version into url2capture.sh so installed copies default to the correct tag.
+ARG SCREENSHOT_VERSION
+ENV SCREENSHOT_VERSION=${SCREENSHOT_VERSION:-unknown}
+RUN if [ -n "$SCREENSHOT_VERSION" ]; then \
+      sed -i "s/IMAGE_TAG:-latest/IMAGE_TAG:-${SCREENSHOT_VERSION}/" /usr/local/lib/screenshot/url2capture.sh; \
+    fi
+
 ENTRYPOINT ["/entrypoint.sh"]

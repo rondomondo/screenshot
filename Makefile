@@ -19,10 +19,12 @@ PLATFORMS  := linux/amd64,linux/arm64
 #PLATFORMS  := linux/amd64
 BUILDER    := screenshotter-builder
 NO_CACHE   ?= 0
-_CACHE_FLAG = $(if $(filter 1,$(NO_CACHE)),--no-cache,)
+CACHE_FLAG  = $(if $(filter 1,$(NO_CACHE)),--no-cache,)
+CACHE_REF   := $(REMOTE):buildcache
+REGISTRY_CACHE = --cache-from type=registry,ref=$(CACHE_REF) --cache-to type=registry,ref=$(CACHE_REF),mode=max,image-manifest=true,oci-mediatypes=true
 RC_VERSION := 1.0.0-rc.1
 # Pre-release versions (containing a hyphen) must never move :latest
-_LATEST_TAG = $(if $(findstring -,$(VERSION)),,--tag $(REMOTE):latest)
+LATEST_TAG  = $(if $(findstring -,$(VERSION)),,--tag $(REMOTE):latest)
 
 # -- Paths & Directory Defaults -------------------------------
 SCREENSHOTS_DIR ?= $(CURDIR)/screenshots
@@ -57,8 +59,8 @@ help: ## Show this help message
 ##@ Build
 
 .PHONY: build
-build: bump ## Build single-arch image for local testing (loads into Docker daemon). NO_CACHE=1 to bust cache.
-	docker build $(_CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -t $(REMOTE):$(VERSION) -t $(REMOTE):latest .
+build: bump builder-init ## Build single-arch image for local testing (loads into Docker daemon). NO_CACHE=1 to bust cache.
+	docker buildx build --builder $(BUILDER) --load $(CACHE_FLAG) --build-arg SCREENSHOT_VERSION=$(VERSION) -t $(REMOTE):$(VERSION) -t $(REMOTE):latest .
 	@printf "$(GREEN)Built$(RESET) $(REMOTE):$(VERSION) and $(REMOTE):latest (local arch only)\n"
 
 .PHONY: builder-init
@@ -83,14 +85,15 @@ bump: ## Increment patch version in VERSION file
 push: builder-init ## Build multi-platform image and push to ghcr.io (amd64 + arm64). NO_CACHE=1 to bust cache.
 	docker buildx build \
 	  --builder $(BUILDER) \
-	  $(_CACHE_FLAG) \
+	  $(CACHE_FLAG) \
+	  $(REGISTRY_CACHE) \
 	  --build-arg SCREENSHOT_VERSION=$(VERSION) \
 	  --platform $(PLATFORMS) \
 	  --tag $(REMOTE):$(VERSION) \
-	  $(_LATEST_TAG) \
+	  $(LATEST_TAG) \
 	  --push \
 	  .
-	@printf "$(GREEN)Pushed$(RESET) $(REMOTE):$(VERSION) $(if $(_LATEST_TAG),and $(REMOTE):latest )($(PLATFORMS))\n"
+	@printf "$(GREEN)Pushed$(RESET) $(REMOTE):$(VERSION) $(if $(LATEST_TAG),and $(REMOTE):latest )($(PLATFORMS))\n"
 
 .PHONY: release
 release: bump push ## Bump patch version, build multi-platform, and push to ghcr.io
